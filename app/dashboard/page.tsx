@@ -34,13 +34,13 @@ export default function Dashboard() {
         ])
 
         // Calculate statistics
-        const activeTrainers = trainersData.filter((trainer: any) => trainer.status === "active").length
-        const freelancers = trainersData.filter((trainer: any) => trainer.isFreelancer && trainer.status === "active").length
-        const staffTrainers = trainersData.filter((trainer: any) => !trainer.isFreelancer && trainer.status === "active").length
-        const activeGyms = gymsData.filter((gym: any) => gym.status === "active").length
+        const activeTrainers = trainersData.items.filter((trainer: any) => trainer.is_active).length
+        const freelancers = trainersData.items.filter((trainer: any) => trainer.is_freelance && trainer.is_active).length
+        const staffTrainers = trainersData.items.filter((trainer: any) => !trainer.is_freelance && trainer.is_active).length
+        const activeGyms = gymsData.filter((gym: any) => gym.is_active).length
 
         setStats({
-          totalTrainers: trainersData.length,
+          totalTrainers: trainersData.items.length,
           activeTrainers,
           freelancers,
           staffTrainers,
