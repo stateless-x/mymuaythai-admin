@@ -1,26 +1,29 @@
 export interface Trainer {
   id: string
-  firstName: {
-    th: string
-    en: string
-  }
-  lastName: {
-    th: string
-    en: string
-  }
+  first_name_th: string
+  first_name_en: string
+  last_name_th: string
+  last_name_en: string
   email: string
   phone?: string
-  joinedDate: string
-  status: "active" | "inactive"
-  assignedGym?: string
-  tags?: string[]
-  isFreelancer: boolean
-  bio?: {
-    th: string
-    en: string
+  bio_th?: string
+  bio_en?: string
+  is_active: boolean
+  is_freelance: boolean
+  line_id?: string
+  primaryGym?: {
+    id: string
+    name_th: string
+    name_en: string
   }
-  yearsOfExperience: number
-  privateClasses?: PrivateClass[]
+  province?: {
+    id: number
+    name_th: string
+    name_en: string
+  }
+  province_id?: number
+  tags?: string[]
+  created_at: string
 }
 
 export interface PrivateClass {
@@ -43,38 +46,41 @@ export interface PrivateClass {
 
 export interface Gym {
   id: string
-  name: {
-    th: string
-    en: string
-  }
-  location: {
-    th: string
-    en: string
-  }
+  name_th: string
+  name_en: string
+  description_th?: string
+  description_en?: string
   phone?: string
-  joinedDate: string
-  status: "active" | "inactive"
-  description?: {
-    th: string
-    en: string
-  }
-  googleMapUrl?: string
-  youtubeUrl?: string
+  email?: string
+  map_url?: string
+  youtube_url?: string
+  line_id?: string
+  is_active: boolean
+  created_at: string
   images?: string[]
-  facilities?: {
-    th: string[]
-    en: string[]
-  }
   tags?: string[]
+  associatedTrainers?: string[]
+  province?: {
+    id: number
+    name_th: string
+    name_en: string
+  }
 }
 
 export interface Tag {
   id: string
-  name: string
-  category: "martial-arts" | "location" | "training-type" | "level" | "general"
+  name: {
+    th: string
+    en: string
+  }
+  description?: {
+    th?: string
+    en?: string
+  }
+  category?: "martial-arts" | "location" | "training-type" | "level" | "general"
   color: string
-  createdDate: string
-  usageCount: number
+  createdDate?: string
+  usageCount?: number
 }
 
 export const TAG_CATEGORIES = [

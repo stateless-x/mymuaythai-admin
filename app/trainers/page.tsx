@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TrainerForm } from "@/components/trainer-form"
@@ -20,78 +20,140 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Edit, Trash2 } from "lucide-react"
-import type { Trainer } from "@/lib/types"
-import { mockTrainers, mockGyms } from "@/lib/mock-data"
+import { Search, Edit, Trash2, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SuccessToast, useSuccessToast } from "@/components/success-toast"
+import { toast } from "sonner"
+import type { Trainer } from "@/lib/types"
+import { trainersApi, gymsApi } from "@/lib/api"
 
 export default function TrainersPage() {
-  const [trainers, setTrainers] = useState<Trainer[]>(mockTrainers)
+  const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [gyms, setGyms] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
   const [filterFreelancer, setFilterFreelancer] = useState<string>("all")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const { isVisible: toastVisible, message: toastMessage, showToast, hideToast } = useSuccessToast()
+  // Fetch trainers and gyms from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        const [trainersData, gymsData] = await Promise.all([
+          trainersApi.getAll(),
+          gymsApi.getAll()
+        ])
+        console.log('Trainers API Response:', trainersData); // Log trainers data
+        setTrainers(trainersData.items)
+        setGyms(gymsData)
+        setError(null)
+      } catch (err) {
+        setError("Failed to fetch data")
+        console.error("Error fetching data:", err)
+        toast.error("ไม่สามารถโหลดข้อมูลได้")
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
+    fetchData()
+  }, [])
+  console.log('trainers', trainers)
   const filteredTrainers = trainers.filter((trainer) => {
-    const fullNameTh = `${trainer.firstName.th} ${trainer.lastName.th}`.trim()
-    const fullNameEn = `${trainer.firstName.en} ${trainer.lastName.en}`.trim()
+    const fullNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
+    const fullNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
     const matchesSearch =
       fullNameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
       fullNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFreelancer =
       filterFreelancer === "all" ||
-      (filterFreelancer === "freelancer" && trainer.isFreelancer) ||
-      (filterFreelancer === "staff" && !trainer.isFreelancer)
+      (filterFreelancer === "freelancer" && trainer.is_freelance) ||
+      (filterFreelancer === "staff" && !trainer.is_freelance)
     return matchesSearch && matchesFreelancer
   })
 
-  const handleAddTrainer = (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
-    const newTrainer: Trainer = {
-      ...trainerData,
-      id: Date.now().toString(),
-      joinedDate: new Date().toISOString().split("T")[0],
+  const handleAddTrainer = async (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
+    try {
+      const newTrainer = await trainersApi.create(trainerData)
+      setTrainers([...trainers, newTrainer])
+      setIsAddDialogOpen(false)
+      const displayName = `${trainerData.first_name_th} ${trainerData.last_name_th}`.trim()
+      toast.success(`เพิ่มครูมวย "${displayName}" สำเร็จ`)
+    } catch (err) {
+      console.error("Error adding trainer:", err)
+      toast.error("ไม่สามารถเพิ่มครูมวยได้")
     }
-    setTrainers([...trainers, newTrainer])
-    setIsAddDialogOpen(false)
-    const displayName = `${trainerData.firstName.th} ${trainerData.lastName.th}`.trim()
-    showToast(`Trainer "${displayName}" has been added successfully!`)
   }
 
-  const handleEditTrainer = (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
+  const handleEditTrainer = async (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
     if (editingTrainer) {
-      setTrainers(
-        trainers.map((trainer) => (trainer.id === editingTrainer.id ? { ...trainer, ...trainerData } : trainer)),
-      )
-      setEditingTrainer(null)
-      const displayName = `${trainerData.firstName.th} ${trainerData.lastName.th}`.trim()
-      showToast(`Trainer "${displayName}" has been updated successfully!`)
+      try {
+        const updatedTrainer = await trainersApi.update(editingTrainer.id, trainerData)
+        setTrainers(trainers.map((trainer) => (trainer.id === editingTrainer.id ? updatedTrainer : trainer)))
+        setEditingTrainer(null)
+        const displayName = `${trainerData.first_name_th} ${trainerData.last_name_th}`.trim()
+        toast.success(`แก้ไขครูมวย "${displayName}" สำเร็จ`)
+      } catch (err) {
+        console.error("Error updating trainer:", err)
+        toast.error("ไม่สามารถแก้ไขครูมวยได้")
+      }
     }
   }
 
-  const handleDeleteTrainer = (trainerId: string) => {
-    const trainer = trainers.find((t) => t.id === trainerId)
-    setTrainers(trainers.filter((trainer) => trainer.id !== trainerId))
-    if (trainer) {
-      const displayName = `${trainer.firstName.th} ${trainer.lastName.th}`.trim()
-      showToast(`Trainer "${displayName}" has been deleted successfully!`)
+  const handleDeleteTrainer = async (trainerId: string) => {
+    try {
+      const trainer = trainers.find((t) => t.id === trainerId)
+      await trainersApi.delete(trainerId)
+      setTrainers(trainers.filter((trainer) => trainer.id !== trainerId))
+      if (trainer) {
+        const displayName = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
+        toast.success(`ลบครูมวย "${displayName}" สำเร็จ`)
+      }
+    } catch (err) {
+      console.error("Error deleting trainer:", err)
+      toast.error("ไม่สามารถลบครูมวยได้")
     }
   }
 
   const getGymName = (gymId?: string) => {
-    if (!gymId) return "Not assigned"
-    const gym = mockGyms.find((g) => g.id === gymId)
-    if (!gym) return "Unknown gym"
+    if (!gymId) return "ไม่ได้มอบหมาย"
+    const gym = gyms.find((g) => g.id === gymId)
+    if (!gym) return "ยิมที่ไม่รู้จัก"
 
     // Handle both old string format and new bilingual format
     if (typeof gym.name === "string") {
       return gym.name
     } else {
-      return gym.name.th || gym.name.en || "Unknown gym"
+      return gym.primaryGym?.name_th || gym.primaryGym?.name_en || "ยิมที่ไม่รู้จัก"
     }
+  }
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
+  }
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="text-center py-10">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>ลองใหม่</Button>
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
   }
 
   return (
@@ -156,8 +218,8 @@ export default function TrainersPage() {
               </TableHeader>
               <TableBody>
                 {filteredTrainers.map((trainer) => {
-                  const displayNameTh = `${trainer.firstName.th} ${trainer.lastName.th}`.trim()
-                  const displayNameEn = `${trainer.firstName.en} ${trainer.lastName.en}`.trim()
+                  const displayNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
+                  const displayNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
 
                   return (
                     <TableRow key={trainer.id}>
@@ -169,16 +231,16 @@ export default function TrainersPage() {
                       </TableCell>
                       <TableCell>{trainer.phone || "ไม่ได้ระบุ"}</TableCell>
                       <TableCell>
-                        <Badge variant={trainer.isFreelancer ? "default" : "secondary"}>
-                          {trainer.isFreelancer ? "ฟรีแลนซ์" : "พนักงาน"}
+                        <Badge variant={trainer.is_freelance ? "default" : "secondary"}>
+                          {trainer.is_freelance ? "ฟรีแลนซ์" : "พนักงาน"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {trainer.isFreelancer ? <Badge variant="outline">อิสระ</Badge> : getGymName(trainer.assignedGym)}
+                        {trainer.is_freelance ? <Badge variant="outline">อิสระ</Badge> : getGymName(trainer.primaryGym?.id)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={trainer.status === "active" ? "default" : "secondary"}>
-                          {trainer.status === "active" ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
+                        <Badge variant={trainer.is_active ? "default" : "secondary"}>
+                          {trainer.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -199,13 +261,7 @@ export default function TrainersPage() {
                                 </DialogHeader>
                               </div>
                               <div className="px-6 pb-6">
-                                {editingTrainer && (
-                                  <TrainerForm
-                                    trainer={editingTrainer}
-                                    onSubmit={handleEditTrainer}
-                                    onCancel={() => setEditingTrainer(null)}
-                                  />
-                                )}
+                                <TrainerForm trainer={trainer} onSubmit={handleEditTrainer} onCancel={() => setEditingTrainer(null)} />
                               </div>
                             </DialogContent>
                           </Dialog>
@@ -220,15 +276,12 @@ export default function TrainersPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  การดำเนินการนี้ไม่สามารถยกเลิกได้
-                                  การดำเนินการนี้จะลบครูมวยและข้อมูลของพวกเขาออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
+                                  การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบครูมวยและข้อมูลของเขาออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteTrainer(trainer.id)}>
-                                  ลบ
-                                </AlertDialogAction>
+                                <AlertDialogAction onClick={() => handleDeleteTrainer(trainer.id)}>ลบ</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -247,8 +300,7 @@ export default function TrainersPage() {
             </div>
           )}
         </div>
-        <SuccessToast message={toastMessage} isVisible={toastVisible} onClose={hideToast} />
       </AdminLayout>
     </ProtectedRoute>
   )
-}
+} 

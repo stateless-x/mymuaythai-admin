@@ -1,17 +1,92 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Users, Building2, UserCheck, Briefcase } from "lucide-react"
-import { mockTrainers, mockGyms } from "@/lib/mock-data"
+import { Button } from "@/components/ui/button"
+import { Users, Building2, UserCheck, Briefcase, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { trainersApi, gymsApi } from "@/lib/api"
 
-export default function AdminDashboard() {
-  const activeTrainers = mockTrainers.filter((trainer) => trainer.status === "active").length
-  const activeGyms = mockGyms.filter((gym) => gym.status === "active").length
-  const freelancers = mockTrainers.filter((trainer) => trainer.isFreelancer && trainer.status === "active").length
-  const staffTrainers = mockTrainers.filter((trainer) => !trainer.isFreelancer && trainer.status === "active").length
+interface DashboardStats {
+  totalTrainers: number
+  activeTrainers: number
+  freelancers: number
+  staffTrainers: number
+  totalGyms: number
+  activeGyms: number
+}
+
+export default function Dashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true)
+        const [trainersData, gymsData] = await Promise.all([
+          trainersApi.getAll(),
+          gymsApi.getAll()
+        ])
+
+        // Calculate statistics
+        const activeTrainers = trainersData.filter((trainer: any) => trainer.status === "active").length
+        const freelancers = trainersData.filter((trainer: any) => trainer.isFreelancer && trainer.status === "active").length
+        const staffTrainers = trainersData.filter((trainer: any) => !trainer.isFreelancer && trainer.status === "active").length
+        const activeGyms = gymsData.filter((gym: any) => gym.status === "active").length
+
+        setStats({
+          totalTrainers: trainersData.length,
+          activeTrainers,
+          freelancers,
+          staffTrainers,
+          totalGyms: gymsData.length,
+          activeGyms
+        })
+        setError(null)
+      } catch (err) {
+        setError("Failed to fetch dashboard data")
+        console.error("Error fetching dashboard data:", err)
+        toast.error("ไม่สามารถโหลดข้อมูลแดชบอร์ดได้")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+            </div>
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
+  }
+
+  if (error || !stats) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="text-center py-10">
+            <p className="text-red-500 mb-4">{error || "ไม่สามารถโหลดข้อมูลได้"}</p>
+            <Button onClick={() => window.location.reload()}>ลองใหม่</Button>
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
+  }
 
   return (
     <ProtectedRoute>
@@ -36,7 +111,7 @@ export default function AdminDashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{activeTrainers}</div>
+                  <div className="text-2xl font-bold">{stats.activeTrainers}</div>
                   <p className="text-xs text-muted-foreground">ครูมวยที่แสดงในระบบ</p>
                 </CardContent>
               </Card>
@@ -47,7 +122,7 @@ export default function AdminDashboard() {
                   <Briefcase className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-800">{freelancers}</div>
+                  <div className="text-2xl font-bold text-orange-800">{stats.freelancers}</div>
                   <p className="text-xs text-orange-600">ครูมวยอิสระ (Freelance)</p>
                 </CardContent>
               </Card>
@@ -69,7 +144,7 @@ export default function AdminDashboard() {
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{mockGyms.length}</div>
+                  <div className="text-2xl font-bold">{stats.totalGyms}</div>
                   <p className="text-xs text-muted-foreground">ยิมที่ลงทะเบียนทั้งหมด</p>
                 </CardContent>
               </Card>
@@ -80,7 +155,7 @@ export default function AdminDashboard() {
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{activeGyms}</div>
+                  <div className="text-2xl font-bold">{stats.activeGyms}</div>
                   <p className="text-xs text-muted-foreground">กำลังแสดงผล</p>
                 </CardContent>
               </Card>
@@ -91,7 +166,7 @@ export default function AdminDashboard() {
                   <UserCheck className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{staffTrainers}</div>
+                  <div className="text-2xl font-bold">{stats.staffTrainers}</div>
                   <p className="text-xs text-muted-foreground">ครูมวยประจำ</p>
                 </CardContent>
               </Card>
@@ -101,4 +176,4 @@ export default function AdminDashboard() {
       </AdminLayout>
     </ProtectedRoute>
   )
-}
+} 

@@ -12,10 +12,10 @@ import { cn } from "@/lib/utils"
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts"
 
 const navigation = [
-  { name: "ภาพรวมการใช้งาน", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "ครูมวย", href: "/admin/trainers", icon: Users },
-  { name: "ยิม", href: "/admin/gyms", icon: Building2 },
-  { name: "แท็ก", href: "/admin/tags", icon: Tag },
+  { name: "ภาพรวมการใช้งาน", href: "/dashboard", icon: LayoutDashboard },
+  { name: "ครูมวย", href: "/trainers", icon: Users },
+  { name: "ยิม", href: "/gyms", icon: Building2 },
+  { name: "แท็ก", href: "/tags", icon: Tag },
 ]
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

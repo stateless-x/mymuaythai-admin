@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { GymForm } from "@/components/gym-form"
@@ -20,19 +20,42 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import type { Gym } from "@/lib/types"
-import { mockGyms } from "@/lib/mock-data"
+import { gymsApi } from "@/lib/api"
 
 export default function GymsPage() {
-  const [gyms, setGyms] = useState<Gym[]>(mockGyms)
+  const [gyms, setGyms] = useState<Gym[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch gyms from API
+  useEffect(() => {
+    const fetchGyms = async () => {
+      try {
+        setIsLoading(true)
+        const data = await gymsApi.getAll()
+        setGyms(data)
+        setError(null)
+      } catch (err) {
+        setError("Failed to fetch gyms")
+        console.error("Error fetching gyms:", err)
+        toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchGyms()
+  }, [])
 
   const filteredGyms = gyms.filter((gym) => {
-    const gymName = typeof gym.name === "string" ? gym.name : gym.name.th + " " + gym.name.en
-    const gymLocation = typeof gym.location === "string" ? gym.location : gym.location.th + " " + gym.location.en
+    const gymName = `${gym.name_th} ${gym.name_en}`.trim()
+    const gymLocation = gym.province ? `${gym.province.name_th} ${gym.province.name_en}`.trim() : ""
 
     return (
       gymName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,25 +63,66 @@ export default function GymsPage() {
     )
   })
 
-  const handleAddGym = (gymData: Omit<Gym, "id" | "joinedDate">) => {
-    const newGym: Gym = {
-      ...gymData,
-      id: Date.now().toString(),
-      joinedDate: new Date().toISOString().split("T")[0],
+  const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
+    try {
+      const newGym = await gymsApi.create(gymData)
+      setGyms([...gyms, newGym])
+      setIsAddDialogOpen(false)
+      toast.success("เพิ่มยิมสำเร็จ")
+    } catch (err) {
+      console.error("Error adding gym:", err)
+      toast.error("ไม่สามารถเพิ่มยิมได้")
     }
-    setGyms([...gyms, newGym])
-    setIsAddDialogOpen(false)
   }
 
-  const handleEditGym = (gymData: Omit<Gym, "id" | "joinedDate">) => {
+  const handleEditGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
-      setGyms(gyms.map((gym) => (gym.id === editingGym.id ? { ...gym, ...gymData } : gym)))
-      setEditingGym(null)
+      try {
+        const updatedGym = await gymsApi.update(editingGym.id, gymData)
+        setGyms(gyms.map((gym) => (gym.id === editingGym.id ? updatedGym : gym)))
+        setEditingGym(null)
+        toast.success("แก้ไขยิมสำเร็จ")
+      } catch (err) {
+        console.error("Error updating gym:", err)
+        toast.error("ไม่สามารถแก้ไขยิมได้")
+      }
     }
   }
 
-  const handleDeleteGym = (gymId: string) => {
-    setGyms(gyms.filter((gym) => gym.id !== gymId))
+  const handleDeleteGym = async (gymId: string) => {
+    try {
+      await gymsApi.delete(gymId)
+      setGyms(gyms.filter((gym) => gym.id !== gymId))
+      toast.success("ลบยิมสำเร็จ")
+    } catch (err) {
+      console.error("Error deleting gym:", err)
+      toast.error("ไม่สามารถลบยิมได้")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
+  }
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <AdminLayout>
+          <div className="text-center py-10">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>ลองใหม่</Button>
+          </div>
+        </AdminLayout>
+      </ProtectedRoute>
+    )
   }
 
   return (
@@ -118,16 +182,16 @@ export default function GymsPage() {
                     <TableCell className="font-mono text-sm">{gym.id}</TableCell>
                     <TableCell className="font-medium">
                       <div>
-                        <div className="font-medium">{typeof gym.name === "object" ? gym.name.th : gym.name}</div>
-                        {typeof gym.name === "object" && gym.name.en && (
-                          <div className="text-sm text-muted-foreground">{gym.name.en}</div>
+                        <div className="font-medium">{gym.name_th}</div>
+                        {gym.name_en && (
+                          <div className="text-sm text-muted-foreground">{gym.name_en}</div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>{gym.phone || "ไม่ได้ระบุ"}</TableCell>
                     <TableCell>
-                      <Badge variant={gym.status === "active" ? "default" : "secondary"}>
-                        {gym.status === "active" ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
+                      <Badge variant={gym.is_active ? "default" : "secondary"}>
+                        {gym.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -186,4 +250,4 @@ export default function GymsPage() {
       </AdminLayout>
     </ProtectedRoute>
   )
-}
+} 

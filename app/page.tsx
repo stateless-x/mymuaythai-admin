@@ -4,16 +4,16 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
-export default function AdminRoot() {
+export default function HomePage() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.push("/admin/dashboard")
+        router.push("/dashboard")
       } else {
-        router.push("/admin/login")
+        router.push("/login")
       }
     }
   }, [user, isLoading, router])
@@ -23,4 +23,4 @@ export default function AdminRoot() {
       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
     </div>
   )
-}
+} 
