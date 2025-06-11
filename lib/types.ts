@@ -69,10 +69,8 @@ export interface Gym {
 
 export interface Tag {
   id: string
-  name: {
-    th: string
-    en: string
-  }
+  name_th: string
+  name_en: string
   description?: {
     th?: string
     en?: string

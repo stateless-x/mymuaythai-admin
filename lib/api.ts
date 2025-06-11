@@ -112,7 +112,10 @@ export const trainersApi = {
 // Tags API
 export const tagsApi = {
   // Get all tags
-  getAll: () => apiRequest("/api/tags"),
+  getAll: async () => {
+    const response = await apiRequest("/api/tags");
+    return response.data?.items || response.data || response;
+  },
   
   // Get tag by ID
   getById: (id: string) => apiRequest(`/api/tags/${id}`),

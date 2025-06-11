@@ -69,7 +69,7 @@ export default function TagsPage() {
   }, [])
 
   const filteredTags = tags.filter((tag) => {
-    const tagName = typeof tag.name === "string" ? tag.name : tag.name.th + " " + tag.name.en
+    const tagName = (tag.name_th || "") + " " + (tag.name_en || "")
     return tagName.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
@@ -88,7 +88,7 @@ export default function TagsPage() {
 
   const handleOpenEditDialog = (tag: Tag) => {
     setFormData({
-      name: typeof tag.name === "string" ? { th: tag.name, en: "" } : tag.name,
+      name: { th: tag.name_th || "", en: tag.name_en || "" },
       description: tag.description || { th: "", en: "" },
       color: tag.color || "#3b82f6"
     })
@@ -305,10 +305,10 @@ export default function TagsPage() {
                         <Hash className="h-4 w-4" style={{ color: tag.color }} />
                         <div>
                           <div className="font-medium">
-                            {typeof tag.name === "string" ? tag.name : tag.name.th}
+                            {tag.name_th}
                           </div>
-                          {typeof tag.name === "object" && tag.name.en && (
-                            <div className="text-sm text-muted-foreground">{tag.name.en}</div>
+                          {tag.name_en && (
+                            <div className="text-sm text-muted-foreground">{tag.name_en}</div>
                           )}
                         </div>
                       </div>
