@@ -140,13 +140,13 @@ export default function GymsPage() {
                   <Plus className="mr-2 h-4 w-4" />+ เพิ่มรายการใหม่
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] overflow-hidden p-0">
-                <div className="p-6 pb-0">
+              <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
+                <div className="p-6 pb-4 border-b flex-shrink-0">
                   <DialogHeader>
                     <DialogTitle>เพิ่มยิมใหม่</DialogTitle>
                   </DialogHeader>
                 </div>
-                <div className="px-6 pb-6">
+                <div className="flex-1 overflow-y-auto px-6 pb-6">
                   <GymForm onSubmit={handleAddGym} onCancel={() => setIsAddDialogOpen(false)} />
                 </div>
               </DialogContent>
@@ -205,13 +205,13 @@ export default function GymsPage() {
                               <Edit className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] overflow-hidden p-0">
-                            <div className="p-6 pb-0">
+                          <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
+                            <div className="p-6 pb-4 border-b flex-shrink-0">
                               <DialogHeader>
                                 <DialogTitle>แก้ไขยิม</DialogTitle>
                               </DialogHeader>
                             </div>
-                            <div className="px-6 pb-6">
+                            <div className="flex-1 overflow-y-auto px-6 pb-6">
                               <GymForm gym={gym} onSubmit={handleEditGym} onCancel={() => setEditingGym(null)} />
                             </div>
                           </DialogContent>
