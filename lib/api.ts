@@ -35,13 +35,23 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 export const gymsApi = {
   // Get all gyms
   getAll: async () => {
-    const response = await apiRequest("/api/gyms");
-    return response.data || response; // Handle potential data property
+    const params = new URLSearchParams({  
+      includeInactive: "true",
+      page: "1",
+      pageSize: "20",
+    })
+    const response = await apiRequest(`/api/gyms?${params.toString()}`);
+    return response.data || response;
   },
   
   // Get gym by ID
-  getById: (id: string) => apiRequest(`/api/gyms/${id}`),
-  
+  getById: (id: string) => {
+    const params = new URLSearchParams({
+      includeInactive: "true",
+    })
+    return apiRequest(`/api/gyms/${id}?${params.toString()}`)
+  },  
+
   // Create new gym
   create: (gym: any) => apiRequest("/api/gyms", {
     method: "POST",
@@ -64,12 +74,22 @@ export const gymsApi = {
 export const trainersApi = {
   // Get all trainers
   getAll: async () => {
-    const response = await apiRequest("/api/trainers");
+    const params = new URLSearchParams({
+      includeInactive: "true",
+      page: "1",
+      pageSize: "20",
+    })
+    const response = await apiRequest(`/api/trainers?${params.toString()}`);
     return response.data || response; // Handle potential data property
   },
   
   // Get trainer by ID
-  getById: (id: string) => apiRequest(`/api/trainers/${id}`),
+  getById: (id: string) => {
+    const params = new URLSearchParams({
+      includeInactive: "true",
+    })
+    return apiRequest(`/api/trainers/${id}?${params.toString()}`)
+  },
   
   // Create new trainer
   create: (trainer: any) => apiRequest("/api/trainers", {

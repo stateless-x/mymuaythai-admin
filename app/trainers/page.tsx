@@ -239,7 +239,10 @@ export default function TrainersPage() {
                         {trainer.is_freelance ? <Badge variant="outline">อิสระ</Badge> : getGymName(trainer.primaryGym?.id)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={trainer.is_active ? "default" : "secondary"}>
+                        
+                        <Badge 
+                        className={`pointer-events-none ${trainer.is_active ? "bg-green-500" : "bg-gray-100"}`}
+                        variant={trainer.is_active ? "default" : "secondary"}>
                           {trainer.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
                         </Badge>
                       </TableCell>

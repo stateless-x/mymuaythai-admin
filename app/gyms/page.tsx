@@ -190,7 +190,10 @@ export default function GymsPage() {
                     </TableCell>
                     <TableCell>{gym.phone || "ไม่ได้ระบุ"}</TableCell>
                     <TableCell>
-                      <Badge variant={gym.is_active ? "default" : "secondary"}>
+                      <Badge 
+                      className={`pointer-events-none ${gym.is_active ? "bg-green-500" : "bg-gray-100"}`}
+                      variant={gym.is_active ? "default" : "secondary"}>
+        
                         {gym.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
                       </Badge>
                     </TableCell>
