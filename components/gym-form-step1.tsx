@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ExternalLink } from "lucide-react"
-import type { Gym } from "@/lib/types"
+import type { Gym, Province } from "@/lib/types"
+import { provincesApi } from "@/lib/api"
 import { 
   validateUrl, 
   validateFormData,
@@ -35,13 +37,33 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     youtube_url: gym?.youtube_url || undefined,
     line_id: gym?.line_id || undefined,
     is_active: gym?.is_active !== undefined ? gym.is_active : true,
+    province_id: gym?.province_id || gym?.province?.id || undefined,
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [isLoadingProvinces, setIsLoadingProvinces] = useState(false)
+
+  // Fetch provinces on component mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      setIsLoadingProvinces(true)
+      try {
+        const response = await provincesApi.getAll()
+        setProvinces(response.data || response)
+      } catch (error) {
+        console.error("Error fetching provinces:", error)
+      } finally {
+        setIsLoadingProvinces(false)
+      }
+    }
+
+    fetchProvinces()
+  }, [])
 
   const validateForm = () => {
-    const requiredFields = ['name_th', 'name_en', 'phone', 'description_th', 'description_en']
+    const requiredFields = ['name_th', 'name_en', 'phone', 'description_th', 'description_en', 'province_id']
     const formErrors = validateFormData(formData, requiredFields)
     setErrors(formErrors)
     return Object.keys(formErrors).length === 0
@@ -79,7 +101,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     try {
       const cleanedData = cleanFormDataForAPI(formData)
       
-      // Only save for new gyms, not when editing existing gyms and just navigating
       if (!gym) {
         await onSave(cleanedData)
       }
@@ -232,6 +253,30 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 autoComplete="off"
                 className="h-9"
               />
+            </div>
+
+            {/* Province Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="province" className="text-sm font-medium">
+                จังหวัด *
+              </Label>
+              <Select
+                value={formData.province_id ? formData.province_id.toString() : ""}
+                onValueChange={(value) => setFormData({ ...formData, province_id: parseInt(value) })}
+                disabled={isSubmitting || isLoadingProvinces}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={isLoadingProvinces ? "กำลังโหลด..." : "เลือกจังหวัด"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {provinces.map((province) => (
+                    <SelectItem key={province.id} value={province.id.toString()}>
+                      {province.name_th}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.province_id && <p className="text-sm text-red-500 mt-1">{errors.province_id}</p>}
             </div>
 
             {/* Description - Side by side Thai/English */}

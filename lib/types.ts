@@ -1,3 +1,9 @@
+export interface Province {
+  id: number
+  name_th: string
+  name_en: string
+}
+
 export interface Trainer {
   id: string
   first_name_th: string
@@ -60,6 +66,7 @@ export interface Gym {
   images?: string[]
   tags?: string[]
   associatedTrainers?: string[]
+  province_id?: number
   province?: {
     id: number
     name_th: string

@@ -145,6 +145,7 @@ export const getValidationMessage = (fieldName: string, validationType: 'require
       'phone': 'จำเป็นต้องระบุเบอร์โทรศัพท์',
       'description_th': 'จำเป็นต้องระบุคำอธิบายภาษาไทย',
       'description_en': 'จำเป็นต้องระบุคำอธิบายภาษาอังกฤษ',
+      'province_id': 'จำเป็นต้องเลือกจังหวัด',
       'default': 'กรุณากรอกข้อมูลในช่องนี้'
     },
     email: 'กรุณาใส่อีเมลที่ถูกต้อง',
@@ -173,8 +174,16 @@ export const validateFormData = (
 
   // Check required fields
   requiredFields.forEach(field => {
-    if (!validateRequired(formData[field])) {
-      errors[field] = getValidationMessage(field, 'required')
+    if (field === 'province_id') {
+      // Special validation for province_id (number field)
+      if (!formData[field] || !Number.isInteger(formData[field])) {
+        errors[field] = getValidationMessage(field, 'required')
+      }
+    } else {
+      // Regular string field validation
+      if (!validateRequired(formData[field])) {
+        errors[field] = getValidationMessage(field, 'required')
+      }
     }
   })
 
