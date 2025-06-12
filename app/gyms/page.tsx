@@ -33,8 +33,8 @@ export default function GymsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const truncateId = (id: string) => {
-    if (id.length <= 6) return id
+  const truncateId = (id: string | undefined) => {
+    if (!id || id.length <= 6) return id || ""
     return `${id.slice(0, 4)}...${id.slice(-2)}`
   }
 

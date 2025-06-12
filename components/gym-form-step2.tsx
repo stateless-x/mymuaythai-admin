@@ -31,7 +31,6 @@ export function GymFormStep2({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    console.log("handleSubmit called - isEditMode:", isEditMode);
     setIsSubmitting(true);
     try {
       // Merge all form data properly

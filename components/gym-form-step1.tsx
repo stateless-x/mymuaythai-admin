@@ -88,19 +88,54 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
+  const formatPhoneInput = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '')
+    
+    // Limit to 10 digits
+    const limitedDigits = digits.slice(0, 10)
+    
+    if (limitedDigits.length <= 2) {
+      return limitedDigits
+    } else if (limitedDigits.length <= 5) {
+      return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2)}`
+    } else if (limitedDigits.length <= 8) {
+      return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
+    } else {
+      // For 9+ digits, use different format
+      if (limitedDigits.length === 9) {
+        return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
+      } else {
+        // For 10 digits
+        return `${limitedDigits.slice(0, 3)}-${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`
+      }
+    }
+  }
+
+  // Helper function to clean phone number for API (remove dashes)
+  const cleanPhoneForAPI = (phone: string) => {
+    return phone.replace(/\D/g, '')
+  }
+
   const handleNext = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault()
     }
     
     if (!validateForm()) {
+      console.log("Validation failed, cannot proceed")
       return
     }
 
     setIsSubmitting(true)
     try {
-      await onSave(formData)
-      onNext(formData)
+      // Clean phone number before sending to API
+      const cleanedData = {
+        ...formData,
+        phone: formData.phone ? cleanPhoneForAPI(formData.phone) : formData.phone
+      }
+      await onSave(cleanedData)
+      onNext(cleanedData)
     } catch (error) {
       console.error("Error saving:", error)
     } finally {
@@ -113,12 +148,18 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     e.stopPropagation()
     
     if (!validateForm()) {
-      return;
+      console.log("Validation failed, cannot save")
+      return
     }
 
     setIsSubmitting(true)
     try {
-      await onSave(formData)
+      // Clean phone number before sending to API
+      const cleanedData = {
+        ...formData,
+        phone: formData.phone ? cleanPhoneForAPI(formData.phone) : formData.phone
+      }
+      await onSave(cleanedData)
       const { toast } = await import('sonner')
       toast.success("บันทึกข้อมูลสำเร็จ", {
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
@@ -138,7 +179,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
   const isEditMode = !!gym
 
   return (
-    <form onSubmit={handleNext}>
+    <form onSubmit={handleNext} noValidate autoComplete="off">
       <div className="space-y-6">
         {/* Progress indicator */}
         <div className="flex items-center space-x-2 mb-6">
@@ -175,7 +216,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   onChange={(e) => setFormData({ ...formData, name_th: e.target.value })}
                   placeholder="ชื่อยิมภาษาไทย"
                   disabled={isSubmitting}
-                  required
+                  autoComplete="off"
                   className={`h-9 ${errors.name_th ? "border-red-500" : ""}`}
                 />
                 {errors.name_th && <p className="text-sm text-red-500 mt-1">{errors.name_th}</p>}
@@ -190,7 +231,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
                   placeholder="Gym name in English"
                   disabled={isSubmitting}
-                  required
+                  autoComplete="off"
                   className={`h-9 ${errors.name_en ? "border-red-500" : ""}`}
                 />
                 {errors.name_en && <p className="text-sm text-red-500 mt-1">{errors.name_en}</p>}
@@ -206,10 +247,10 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 <Input
                   id="phone"
                   value={formData.phone || ""}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: formatPhoneInput(e.target.value) })}
                   placeholder="089-123-4567"
                   disabled={isSubmitting}
-                  required
+                  autoComplete="off"
                   className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
                 />
                 {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
@@ -221,10 +262,11 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email || ""}
+                  value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="contact@example.com"
                   disabled={isSubmitting}
+                  autoComplete="off"
                   className={`h-9 ${errors.email ? "border-red-500" : ""}`}
                 />
                 {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
@@ -240,8 +282,9 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 id="lineId"
                 value={formData.line_id || ""}
                 onChange={(e) => setFormData({ ...formData, line_id: e.target.value })}
-                placeholder="@gymlineid"
+                placeholder="gymlineid or @gymlineid"
                 disabled={isSubmitting}
+                autoComplete="off"
                 className="h-9"
               />
             </div>
@@ -260,7 +303,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     onChange={(e) => setFormData({ ...formData, description_th: e.target.value })}
                     placeholder="อธิบายยิม บรรยากาศ และสิ่งที่ทำให้พิเศษ..."
                     disabled={isSubmitting}
-                    required
+                    autoComplete="off"
                     rows={6}
                     className={`resize-none ${errors.description_th ? "border-red-500" : ""}`}
                   />
@@ -276,7 +319,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     onChange={(e) => setFormData({ ...formData, description_en: e.target.value })}
                     placeholder="Describe the gym, atmosphere, and what makes it special..."
                     disabled={isSubmitting}
-                    required
+                    autoComplete="off"
                     rows={6}
                     className={`resize-none ${errors.description_en ? "border-red-500" : ""}`}
                   />
@@ -318,6 +361,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   placeholder="https://maps.app.goo.gl/ZQnNR1DCcXvtkGyN9"
                   className={`h-9 ${errors.map_url ? "border-red-500" : ""}`}
                   disabled={isSubmitting}
+                  autoComplete="off"
                 />
                 {formData.map_url && validateUrl(formData.map_url) && (
                   <Button
@@ -347,6 +391,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   placeholder="https://youtu.be/dQw4w9WgXcQ?si=XEGNd4iD9vvYgJla"
                   className={`h-9 ${errors.youtube_url ? "border-red-500" : ""}`}
                   disabled={isSubmitting}
+                  autoComplete="off"
                 />
                 {formData.youtube_url && validateUrl(formData.youtube_url) && (
                   <Button
