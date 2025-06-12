@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ExternalLink } from "lucide-react"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ExternalLink, Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { Gym, Province } from "@/lib/types"
 import { provincesApi } from "@/lib/api"
 import { 
@@ -44,6 +46,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [provinces, setProvinces] = useState<Province[]>([])
   const [isLoadingProvinces, setIsLoadingProvinces] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
   // Fetch provinces on component mount
   useEffect(() => {
@@ -150,17 +153,17 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
         {/* Progress indicator */}
         <div className="flex items-center space-x-2 mb-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-md font-medium">
               1
             </div>
-            <span className="ml-2 text-sm font-medium text-blue-600">ข้อมูลพื้นฐาน</span>
+            <span className="ml-2 text-md font-medium text-blue-600">ข้อมูลพื้นฐาน</span>
           </div>
           <div className="flex-1 h-px bg-gray-200"></div>
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-medium">
+            <div className="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-md font-medium">
               2
             </div>
-            <span className="ml-2 text-sm text-gray-500">รูปภาพและสิ่งอำนวยความสะดวก</span>
+            <span className="ml-2 text-md text-gray-500">รูปภาพและสิ่งอำนวยความสะดวก</span>
           </div>
         </div>
 
@@ -173,7 +176,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
             {/* Gym Name - Side by side Thai/English */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="gymNameTh" className="text-sm font-medium">
+                <Label htmlFor="gymNameTh" className="text-md font-medium">
                   ชื่อยิม (ไทย) *
                 </Label>
                 <Input
@@ -185,10 +188,10 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   autoComplete="off"
                   className={`h-9 ${errors.name_th ? "border-red-500" : ""}`}
                 />
-                {errors.name_th && <p className="text-sm text-red-500 mt-1">{errors.name_th}</p>}
+                {errors.name_th && <p className="text-md text-red-500 mt-1">{errors.name_th}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gymNameEn" className="text-sm font-medium">
+                <Label htmlFor="gymNameEn" className="text-md font-medium">
                   ชื่อยิม (English) *
                 </Label>
                 <Input
@@ -200,14 +203,14 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   autoComplete="off"
                   className={`h-9 ${errors.name_en ? "border-red-500" : ""}`}
                 />
-                {errors.name_en && <p className="text-sm text-red-500 mt-1">{errors.name_en}</p>}
+                {errors.name_en && <p className="text-md text-red-500 mt-1">{errors.name_en}</p>}
               </div>
             </div>
 
             {/* Contact Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">
+                <Label htmlFor="phone" className="text-md font-medium">
                   เบอร์โทรศัพท์ *
                 </Label>
                 <Input
@@ -219,10 +222,10 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   autoComplete="off"
                   className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
                 />
-                {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
+                {errors.phone && <p className="text-md text-red-500 mt-1">{errors.phone}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email" className="text-md font-medium">
                   อีเมล
                 </Label>
                 <Input
@@ -235,13 +238,13 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   autoComplete="off"
                   className={`h-9 ${errors.email ? "border-red-500" : ""}`}
                 />
-                {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+                {errors.email && <p className="text-md text-red-500 mt-1">{errors.email}</p>}
               </div>
             </div>
 
             {/* Line ID */}
             <div className="space-y-2">
-              <Label htmlFor="lineId" className="text-sm font-medium">
+              <Label htmlFor="lineId" className="text-md font-medium">
                 Line ID
               </Label>
               <Input
@@ -256,35 +259,74 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
             </div>
 
             {/* Province Selector */}
-            <div className="space-y-2">
-              <Label htmlFor="province" className="text-sm font-medium">
+            <div className="space-y-2 space-x-3">
+              <Label htmlFor="province" className="text-md font-medium">
                 จังหวัด *
               </Label>
-              <Select
-                value={formData.province_id ? formData.province_id.toString() : ""}
-                onValueChange={(value) => setFormData({ ...formData, province_id: parseInt(value) })}
-                disabled={isSubmitting || isLoadingProvinces}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder={isLoadingProvinces ? "กำลังโหลด..." : "เลือกจังหวัด"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {provinces.map((province) => (
-                    <SelectItem key={province.id} value={province.id.toString()}>
-                      {province.name_th}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.province_id && <p className="text-sm text-red-500 mt-1">{errors.province_id}</p>}
+              <Popover open={isOpen} onOpenChange={setIsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isOpen}
+                    className={cn(
+                      "h-9 w-[300px] justify-between text-left",
+                      !formData.province_id && "text-muted-foreground",
+                      errors.province_id && "border-red-500"
+                    )}
+                    disabled={isSubmitting || isLoadingProvinces}
+                  >
+                    <span className="truncate">
+                      {isLoadingProvinces
+                        ? "กำลังโหลด..."
+                        : formData.province_id
+                        ? provinces.find(p => p.id === formData.province_id)?.name_th
+                        : "เลือกจังหวัด"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="ค้นหาจังหวัด..."
+                      className="h-9"
+                    />
+                    <CommandEmpty>ไม่พบจังหวัดที่ค้นหา</CommandEmpty>
+                    <CommandList className="max-h-[200px] overflow-y-auto">
+                      <CommandGroup>
+                        {provinces.map((province) => (
+                          <CommandItem
+                            key={province.id}
+                            value={province.name_th}
+                            onSelect={() => {
+                              setFormData({ ...formData, province_id: province.id })
+                              setIsOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.province_id === province.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {province.name_th}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {errors.province_id && <p className="text-md text-red-500 mt-1">{errors.province_id}</p>}
             </div>
 
             {/* Description - Side by side Thai/English */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">คำอธิบายยิม</Label>
+              {/* <Label className="text-md font-semibold">เกี่ยวกับยิม</Label> */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="descriptionTh" className="text-sm text-muted-foreground">
+                  <Label htmlFor="descriptionTh" className="text-md text-muted-foreground">
                     คำอธิบาย (ไทย) *
                   </Label>
                   <Textarea
@@ -297,10 +339,10 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     rows={6}
                     className={`resize-none ${errors.description_th ? "border-red-500" : ""}`}
                   />
-                  {errors.description_th && <p className="text-sm text-red-500 mt-1">{errors.description_th}</p>}
+                  {errors.description_th && <p className="text-md text-red-500 mt-1">{errors.description_th}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="descriptionEn" className="text-sm text-muted-foreground">
+                  <Label htmlFor="descriptionEn" className="text-md text-muted-foreground">
                     คำอธิบาย (English) *
                   </Label>
                   <Textarea
@@ -313,7 +355,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     rows={6}
                     className={`resize-none ${errors.description_en ? "border-red-500" : ""}`}
                   />
-                  {errors.description_en && <p className="text-sm text-red-500 mt-1">{errors.description_en}</p>}
+                  {errors.description_en && <p className="text-md text-red-500 mt-1">{errors.description_en}</p>}
                 </div>
               </div>
             </div>
@@ -325,7 +367,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 disabled={isSubmitting}
               />
-              <Label htmlFor="status" className="text-sm">
+              <Label htmlFor="status" className="text-md">
                 เปิดใช้งาน
               </Label>
             </div>
@@ -339,7 +381,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="mapUrl" className="text-sm">
+              <Label htmlFor="mapUrl" className="text-md">
                 URL Google Maps
               </Label>
               <div className="flex space-x-2">
@@ -365,11 +407,11 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   </Button>
                 )}
               </div>
-              {errors.map_url && <p className="text-sm text-red-500 mt-1">{errors.map_url}</p>}
+              {errors.map_url && <p className="text-md text-red-500 mt-1">{errors.map_url}</p>}
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="youtubeUrl" className="text-sm">
+              <Label htmlFor="youtubeUrl" className="text-md">
                 URL YouTube
               </Label>
               <div className="flex space-x-2">
@@ -395,7 +437,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   </Button>
                 )}
               </div>
-              {errors.youtube_url && <p className="text-sm text-red-500 mt-1">{errors.youtube_url}</p>}
+              {errors.youtube_url && <p className="text-md text-red-500 mt-1">{errors.youtube_url}</p>}
             </div>
           </CardContent>
         </Card>
