@@ -309,7 +309,7 @@ export function TrainerForm({ trainer, onSubmit, onCancel }: TrainerFormProps) {
                         {mockGyms
                           .filter((gym) => gym.status === "active")
                           .map((gym) => {
-                            const displayName = typeof gym.name === "string" ? gym.name : gym.name.th || gym.name.en
+                            const displayName = gym.name_th || gym.name_en || "ไม่ระบุชื่อ"
                             return (
                               <SelectItem key={gym.id} value={gym.id}>
                                 {displayName}

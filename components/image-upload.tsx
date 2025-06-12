@@ -216,7 +216,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {images.map((image, index) => (
-              <Card key={index} className="overflow-hidden">
+              <Card key={`image-${index}-${image}`} className="overflow-hidden">
                 <CardContent className="p-0 relative group">
                   <img
                     src={image || "/placeholder.svg"}

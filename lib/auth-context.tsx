@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true
       }
     } catch (error) {
-      console.log("Backend login failed, falling back to mock authentication")
+      throw error;
     }
 
     // Fallback to mock authentication if backend is not available

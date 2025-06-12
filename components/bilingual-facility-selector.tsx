@@ -135,7 +135,7 @@ export function BilingualFacilitySelector({ value, onChange, disabled = false }:
             <Label className="text-sm font-medium">สิ่งอำนวยความสะดวกที่เลือก ({displayFacilities.length})</Label>
             <div className="flex flex-wrap gap-2">
               {displayFacilities.map((facility, index) => (
-                <Badge key={index} variant="default" className="text-sm">
+                <Badge key={`facility-${index}-${facility}`} variant="default" className="text-sm">
                   {facility}
                   {!disabled && (
                     <button
@@ -209,7 +209,7 @@ export function BilingualFacilitySelector({ value, onChange, disabled = false }:
               const displayText = activeTab === "th" ? option.th : option.en
 
               return (
-                <div key={index} className="flex items-center space-x-2">
+                <div key={`option-${index}-${option.th}-${option.en}`} className="flex items-center space-x-2">
                   <Checkbox
                     id={`facility-${index}`}
                     checked={isSelected}

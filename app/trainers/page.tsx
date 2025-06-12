@@ -45,7 +45,6 @@ export default function TrainersPage() {
           trainersApi.getAll(),
           gymsApi.getAll()
         ])
-        console.log('Trainers API Response:', trainersData); // Log trainers data
         setTrainers(trainersData.items)
         setGyms(gymsData)
         setError(null)
@@ -60,7 +59,6 @@ export default function TrainersPage() {
 
     fetchData()
   }, [])
-  console.log('trainers', trainers)
   const filteredTrainers = trainers.filter((trainer) => {
     const fullNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
     const fullNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()

@@ -33,25 +33,52 @@ export default function GymsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch gyms from API
-  useEffect(() => {
-    const fetchGyms = async () => {
-      try {
-        setIsLoading(true)
-        const data = await gymsApi.getAll()
-        setGyms(data)
-        setError(null)
-      } catch (err) {
-        setError("Failed to fetch gyms")
-        console.error("Error fetching gyms:", err)
-        toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const truncateId = (id: string) => {
+    if (id.length <= 6) return id
+    return `${id.slice(0, 4)}...${id.slice(-2)}`
+  }
 
+  // Helper function to format phone numbers
+  const formatPhone = (phone: string) => {
+    if (!phone) return "ไม่ได้ระบุ"
+    
+    // Remove any non-digit characters
+    const digits = phone.replace(/\D/g, '')
+
+    if (digits.length === 10) {
+      // Format as XXX-XXX-XXXX
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+    } else if (digits.length === 9) {
+      // Format as XX-XXX-XXXX
+      return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`
+    } else {
+      return phone
+    }
+  }
+
+  const fetchGyms = async () => {
+    try {
+      setIsLoading(true)
+      const data = await gymsApi.getAll()
+      setGyms(data)
+      setError(null)
+    } catch (err) {
+      setError("Failed to fetch gyms")
+      console.error("Error fetching gyms:", err)
+      toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchGyms()
   }, [])
+
+  const closeEditDialog = () => {
+    setEditingGym(null)
+    fetchGyms()
+  }
 
   const filteredGyms = gyms.filter((gym) => {
     const gymName = `${gym.name_th} ${gym.name_en}`.trim()
@@ -80,11 +107,25 @@ export default function GymsPage() {
       try {
         const updatedGym = await gymsApi.update(editingGym.id, gymData)
         setGyms(gyms.map((gym) => (gym.id === editingGym.id ? updatedGym : gym)))
-        setEditingGym(null)
+        closeEditDialog() // Use helper function
         toast.success("แก้ไขยิมสำเร็จ")
       } catch (err) {
         console.error("Error updating gym:", err)
         toast.error("ไม่สามารถแก้ไขยิมได้")
+      }
+    }
+  }
+
+  const handleSaveGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
+    if (editingGym) {
+      try {
+        const updatedGym = await gymsApi.update(editingGym.id, gymData)        
+        setGyms(gyms.map((gym) => 
+          gym.id === editingGym.id ? { ...gym, ...updatedGym } : gym
+        ))
+      } catch (err) {
+        console.error("Error saving gym:", err)
+        throw err 
       }
     }
   }
@@ -137,7 +178,7 @@ export default function GymsPage() {
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <Plus className="mr-2 h-4 w-4" />+ เพิ่มรายการใหม่
+                  <Plus className="mr-2 h-4 w-4" />สร้างยิมใหม่
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
@@ -179,7 +220,7 @@ export default function GymsPage() {
               <TableBody>
                 {filteredGyms.map((gym) => (
                   <TableRow key={gym.id}>
-                    <TableCell className="font-mono text-sm">{gym.id}</TableCell>
+                    <TableCell className="font-mono text-sm">{truncateId(gym.id)}</TableCell>
                     <TableCell className="font-medium">
                       <div>
                         <div className="font-medium">{gym.name_th}</div>
@@ -188,7 +229,7 @@ export default function GymsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{gym.phone || "ไม่ได้ระบุ"}</TableCell>
+                    <TableCell>{formatPhone(gym.phone || "")}</TableCell>
                     <TableCell>
                       <Badge 
                       className={`pointer-events-none ${gym.is_active ? "bg-green-500" : "bg-gray-100"}`}
@@ -199,20 +240,39 @@ export default function GymsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Dialog open={editingGym?.id === gym.id} onOpenChange={(open) => !open && setEditingGym(null)}>
+                        <Dialog 
+                          open={editingGym?.id === gym.id} 
+                          onOpenChange={(open) => {
+                            if (!open) {
+                              closeEditDialog()
+                            }
+                          }}
+                          modal={true}
+                        >
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setEditingGym(gym)}>
+                            <Button variant="outline" size="sm" onClick={() => {
+                              setEditingGym(gym)
+                            }}>
                               <Edit className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
+                          <DialogContent 
+                            className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col"
+                            onEscapeKeyDown={() => closeEditDialog()}
+                            onPointerDownOutside={() => closeEditDialog()}
+                          >
                             <div className="p-6 pb-4 border-b flex-shrink-0">
                               <DialogHeader>
                                 <DialogTitle>แก้ไขยิม</DialogTitle>
                               </DialogHeader>
                             </div>
                             <div className="flex-1 overflow-y-auto px-6 pb-6">
-                              <GymForm gym={gym} onSubmit={handleEditGym} onCancel={() => setEditingGym(null)} />
+                              <GymForm 
+                                gym={gym} 
+                                onSubmit={handleEditGym} 
+                                onCancel={() => closeEditDialog()}
+                                onSaveOnly={handleSaveGym}
+                              />
                             </div>
                           </DialogContent>
                         </Dialog>

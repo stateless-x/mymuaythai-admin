@@ -9,18 +9,20 @@ interface GymFormMultiStepProps {
   gym?: Gym
   onSubmit: (gym: Omit<Gym, "id" | "joinedDate">) => void
   onCancel: () => void
+  onSaveOnly?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
 }
 
-export function GymFormMultiStep({ gym, onSubmit, onCancel }: GymFormMultiStepProps) {
+export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly }: GymFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [step1Data, setStep1Data] = useState<Partial<Gym>>({})
 
-  // Mock API call for soft save
-  const handleSoftSave = async (data: Partial<Gym>) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    console.log("Soft saving data:", data)
-    // In real implementation, this would make a PUT request to save draft
+  // Save function that either saves existing gym or does nothing for new gyms
+  const handleSave = async (data: Partial<Gym>) => {
+    if (!gym || !onSaveOnly) {
+      return
+    }
+    
+    await onSaveOnly(data as Omit<Gym, "id" | "joinedDate">)
   }
 
   const handleStep1Next = (data: Partial<Gym>) => {
@@ -37,7 +39,12 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel }: GymFormMultiStepPr
   }
 
   if (currentStep === 1) {
-    return <GymFormStep1 gym={gym} onNext={handleStep1Next} onCancel={onCancel} onSave={handleSoftSave} />
+    return <GymFormStep1 
+      gym={gym} 
+      onNext={handleStep1Next} 
+      onCancel={onCancel} 
+      onSave={handleSave}
+    />
   }
 
   return (
@@ -46,7 +53,7 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel }: GymFormMultiStepPr
       initialData={step1Data}
       onSubmit={handleFinalSubmit}
       onBack={handleStep2Back}
-      onSave={handleSoftSave}
+      onSave={handleSave}
     />
   )
 }

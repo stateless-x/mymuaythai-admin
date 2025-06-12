@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExternalLink } from "lucide-react"
 import type { Gym } from "@/lib/types"
 
@@ -20,57 +19,54 @@ interface GymFormStep1Props {
 
 export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Props) {
   const [formData, setFormData] = useState({
-    name: gym?.name || { th: "", en: "" },
-    location: gym?.location || { th: "", en: "" },
-    phone: gym?.phone || "",
-    description: gym?.description || { th: "", en: "" },
-    googleMapUrl: gym?.googleMapUrl || "",
-    youtubeUrl: gym?.youtubeUrl || "",
-    status: gym?.status || "active",
+    name_th: gym?.name_th,
+    name_en: gym?.name_en,
+    phone: gym?.phone,
+    email: gym?.email || undefined,
+    description_th: gym?.description_th,
+    description_en: gym?.description_en,
+    map_url: gym?.map_url || undefined,
+    youtube_url: gym?.youtube_url || undefined,
+    line_id: gym?.line_id || undefined,
+    is_active: gym?.is_active !== undefined ? gym.is_active : true,
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-
-  // Auto-save functionality
-  useEffect(() => {
-    const autoSave = async () => {
-      if (formData.name.th.trim() || formData.name.en.trim()) {
-        setIsSaving(true)
-        try {
-          await onSave(formData)
-          setLastSaved(new Date())
-        } catch (error) {
-          console.error("Auto-save failed:", error)
-        } finally {
-          setIsSaving(false)
-        }
-      }
-    }
-
-    const timeoutId = setTimeout(autoSave, 2000)
-    return () => clearTimeout(timeoutId)
-  }, [formData, onSave])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.name.th.trim()) {
-      newErrors.name = "จำเป็นต้องระบุชื่อยิมภาษาไทย"
+    if (!formData.name_th || !formData.name_th.trim()) {
+      newErrors.name_th = "จำเป็นต้องระบุชื่อยิมภาษาไทย"
     }
 
-    if (!formData.location.th.trim()) {
-      newErrors.location = "จำเป็นต้องระบุที่อยู่ภาษาไทย"
+    if (!formData.name_en || !formData.name_en.trim()) {
+      newErrors.name_en = "จำเป็นต้องระบุชื่อยิมภาษาอังกฤษ"
     }
 
-    if (formData.googleMapUrl && !validateUrl(formData.googleMapUrl)) {
-      newErrors.googleMapUrl = "กรุณาใส่ URL Google Maps ที่ถูกต้อง"
+    if (!formData.phone || !formData.phone.trim()) {
+      newErrors.phone = "จำเป็นต้องระบุเบอร์โทรศัพท์"
     }
 
-    if (formData.youtubeUrl && !validateUrl(formData.youtubeUrl)) {
-      newErrors.youtubeUrl = "กรุณาใส่ URL YouTube ที่ถูกต้อง"
+    if (!formData.description_th || !formData.description_th.trim()) {
+      newErrors.description_th = "จำเป็นต้องระบุคำอธิบายภาษาไทย"
+    }
+
+    if (!formData.description_en || !formData.description_en.trim()) {
+      newErrors.description_en = "จำเป็นต้องระบุคำอธิบายภาษาอังกฤษ"
+    }
+
+    if (formData.map_url && !validateUrl(formData.map_url)) {
+      newErrors.map_url = "กรุณาใส่ URL Google Maps ที่ถูกต้อง"
+    }
+
+    if (formData.youtube_url && !validateUrl(formData.youtube_url)) {
+      newErrors.youtube_url = "กรุณาใส่ URL YouTube ที่ถูกต้อง"
+    }
+
+    if (formData.email && !validateEmail(formData.email)) {
+      newErrors.email = "กรุณาใส่อีเมลที่ถูกต้อง"
     }
 
     setErrors(newErrors)
@@ -87,7 +83,16 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     }
   }
 
-  const handleNext = async () => {
+  const validateEmail = (email: string) => {
+    if (!email) return true
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  const handleNext = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
+    
     if (!validateForm()) {
       return
     }
@@ -96,283 +101,293 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     try {
       await onSave(formData)
       onNext(formData)
+    } catch (error) {
+      console.error("Error saving:", error)
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true)
+    try {
+      await onSave(formData)
+      const { toast } = await import('sonner')
+      toast.success("บันทึกข้อมูลสำเร็จ", {
+        description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
+      })
+    } catch (error) {
+      console.error("Error saving:", error)
+      const { toast } = await import('sonner')
+      toast.error("ไม่สามารถบันทึกข้อมูลได้", {
+        description: "กรุณาลองอีกครั้ง"
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Check if we're in edit mode
+  const isEditMode = !!gym
+
   return (
-    <div className="space-y-6">
-      {/* Progress indicator */}
-      <div className="flex items-center space-x-2 mb-6">
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
-            1
+    <form onSubmit={handleNext}>
+      <div className="space-y-6">
+        {/* Progress indicator */}
+        <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+              1
+            </div>
+            <span className="ml-2 text-sm font-medium text-blue-600">ข้อมูลพื้นฐาน</span>
           </div>
-          <span className="ml-2 text-sm font-medium text-blue-600">ข้อมูลพื้นฐาน</span>
+          <div className="flex-1 h-px bg-gray-200"></div>
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-medium">
+              2
+            </div>
+            <span className="ml-2 text-sm text-gray-500">รูปภาพและสิ่งอำนวยความสะดวก</span>
+          </div>
         </div>
-        <div className="flex-1 h-px bg-gray-200"></div>
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-medium">
-            2
-          </div>
-          <span className="ml-2 text-sm text-gray-500">รูปภาพและสิ่งอำนวยความสะดวก</span>
-        </div>
-      </div>
 
-      {/* Auto-save indicator */}
-      {(isSaving || lastSaved) && (
-        <div className="text-sm text-muted-foreground text-right">
-          {isSaving ? "กำลังบันทึก..." : `บันทึกล่าสุด: ${lastSaved?.toLocaleTimeString()}`}
-        </div>
-      )}
+        {/* Basic Information */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">ข้อมูลพื้นฐาน</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Gym Name - Side by side Thai/English */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="gymNameTh" className="text-sm font-medium">
+                  ชื่อยิม (ไทย) *
+                </Label>
+                <Input
+                  id="gymNameTh"
+                  value={formData.name_th || ""}
+                  onChange={(e) => setFormData({ ...formData, name_th: e.target.value })}
+                  placeholder="ชื่อยิมภาษาไทย"
+                  disabled={isSubmitting}
+                  required
+                  className={`h-9 ${errors.name_th ? "border-red-500" : ""}`}
+                />
+                {errors.name_th && <p className="text-sm text-red-500 mt-1">{errors.name_th}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gymNameEn" className="text-sm font-medium">
+                  ชื่อยิม (English) *
+                </Label>
+                <Input
+                  id="gymNameEn"
+                  value={formData.name_en || ""}
+                  onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+                  placeholder="Gym name in English"
+                  disabled={isSubmitting}
+                  required
+                  className={`h-9 ${errors.name_en ? "border-red-500" : ""}`}
+                />
+                {errors.name_en && <p className="text-sm text-red-500 mt-1">{errors.name_en}</p>}
+              </div>
+            </div>
 
-      {/* Basic Information */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">ข้อมูลพื้นฐาน</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Gym Name - Bilingual Tabs */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              ชื่อยิม *{errors.name && <span className="text-red-500 ml-2">{errors.name}</span>}
-            </Label>
-            <Tabs defaultValue="th" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="th">🇹🇭 ไทย</TabsTrigger>
-                <TabsTrigger value="en">🇬🇧 English</TabsTrigger>
-              </TabsList>
+            {/* Contact Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-medium">
+                  เบอร์โทรศัพท์ *
+                </Label>
+                <Input
+                  id="phone"
+                  value={formData.phone || ""}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="089-123-4567"
+                  disabled={isSubmitting}
+                  required
+                  className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
+                />
+                {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  อีเมล
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email || ""}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="contact@example.com"
+                  disabled={isSubmitting}
+                  className={`h-9 ${errors.email ? "border-red-500" : ""}`}
+                />
+                {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+              </div>
+            </div>
 
-              <TabsContent value="th">
+            {/* Line ID */}
+            <div className="space-y-2">
+              <Label htmlFor="lineId" className="text-sm font-medium">
+                Line ID
+              </Label>
+              <Input
+                id="lineId"
+                value={formData.line_id || ""}
+                onChange={(e) => setFormData({ ...formData, line_id: e.target.value })}
+                placeholder="@gymlineid"
+                disabled={isSubmitting}
+                className="h-9"
+              />
+            </div>
+
+            {/* Description - Side by side Thai/English */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">คำอธิบายยิม</Label>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gymNameTh">ชื่อยิม (TH) *</Label>
-                  <Input
-                    id="gymNameTh"
-                    value={formData.name.th}
-                    onChange={(e) => setFormData({ ...formData, name: { ...formData.name, th: e.target.value } })}
-                    placeholder="ชื่อยิมภาษาไทย"
-                    disabled={isSubmitting}
-                    className="h-9"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="en">
-                <div className="space-y-2">
-                  <Label htmlFor="gymNameEn">Gym Name (EN)</Label>
-                  <Input
-                    id="gymNameEn"
-                    value={formData.name.en}
-                    onChange={(e) => setFormData({ ...formData, name: { ...formData.name, en: e.target.value } })}
-                    placeholder="Gym name in English"
-                    disabled={isSubmitting}
-                    className="h-9"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Location - Bilingual Tabs */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              ที่อยู่ *{errors.location && <span className="text-red-500 ml-2">{errors.location}</span>}
-            </Label>
-            <Tabs defaultValue="th" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="th">🇹🇭 ไทย</TabsTrigger>
-                <TabsTrigger value="en">🇬🇧 English</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="th">
-                <div className="space-y-2">
-                  <Label htmlFor="locationTh">ที่อยู่ (TH) *</Label>
-                  <Textarea
-                    id="locationTh"
-                    value={formData.location.th}
-                    onChange={(e) =>
-                      setFormData({ ...formData, location: { ...formData.location, th: e.target.value } })
-                    }
-                    placeholder="ที่อยู่เต็มภาษาไทย"
-                    disabled={isSubmitting}
-                    rows={2}
-                    className="resize-none"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="en">
-                <div className="space-y-2">
-                  <Label htmlFor="locationEn">Address (EN)</Label>
-                  <Textarea
-                    id="locationEn"
-                    value={formData.location.en}
-                    onChange={(e) =>
-                      setFormData({ ...formData, location: { ...formData.location, en: e.target.value } })
-                    }
-                    placeholder="Full address in English"
-                    disabled={isSubmitting}
-                    rows={2}
-                    className="resize-none"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="phone" className="text-sm">
-              เบอร์โทรศัพท์
-            </Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+66 2 123 4567"
-              disabled={isSubmitting}
-              className="h-9"
-            />
-          </div>
-
-          {/* Description - Bilingual Tabs */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">คำอธิบาย</Label>
-            <Tabs defaultValue="th" className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="th">🇹🇭 ไทย</TabsTrigger>
-                <TabsTrigger value="en">🇬🇧 English</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="th">
-                <div className="space-y-2">
-                  <Label htmlFor="descriptionTh">คำอธิบาย (TH)</Label>
+                  <Label htmlFor="descriptionTh" className="text-sm text-muted-foreground">
+                    คำอธิบาย (ไทย) *
+                  </Label>
                   <Textarea
                     id="descriptionTh"
-                    value={formData.description.th}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: { ...formData.description, th: e.target.value } })
-                    }
+                    value={formData.description_th || ""}
+                    onChange={(e) => setFormData({ ...formData, description_th: e.target.value })}
                     placeholder="อธิบายยิม บรรยากาศ และสิ่งที่ทำให้พิเศษ..."
                     disabled={isSubmitting}
-                    rows={3}
-                    className="resize-none"
+                    required
+                    rows={6}
+                    className={`resize-none ${errors.description_th ? "border-red-500" : ""}`}
                   />
+                  {errors.description_th && <p className="text-sm text-red-500 mt-1">{errors.description_th}</p>}
                 </div>
-              </TabsContent>
-
-              <TabsContent value="en">
                 <div className="space-y-2">
-                  <Label htmlFor="descriptionEn">Description (EN)</Label>
+                  <Label htmlFor="descriptionEn" className="text-sm text-muted-foreground">
+                    คำอธิบาย (English) *
+                  </Label>
                   <Textarea
                     id="descriptionEn"
-                    value={formData.description.en}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: { ...formData.description, en: e.target.value } })
-                    }
+                    value={formData.description_en || ""}
+                    onChange={(e) => setFormData({ ...formData, description_en: e.target.value })}
                     placeholder="Describe the gym, atmosphere, and what makes it special..."
                     disabled={isSubmitting}
-                    rows={3}
-                    className="resize-none"
+                    required
+                    rows={6}
+                    className={`resize-none ${errors.description_en ? "border-red-500" : ""}`}
                   />
+                  {errors.description_en && <p className="text-sm text-red-500 mt-1">{errors.description_en}</p>}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+              </div>
+            </div>
 
-          <div className="flex items-center space-x-2 pt-1">
-            <Switch
-              id="status"
-              checked={formData.status === "active"}
-              onCheckedChange={(checked) => setFormData({ ...formData, status: checked ? "active" : "inactive" })}
-              disabled={isSubmitting}
-            />
-            <Label htmlFor="status" className="text-sm">
-              เปิดใช้งาน
-            </Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* URLs and Media */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">ลิงก์และสื่อ</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="googleMapUrl" className="text-sm">
-              URL Google Maps
-            </Label>
-            <div className="flex space-x-2">
-              <Input
-                id="googleMapUrl"
-                type="url"
-                value={formData.googleMapUrl}
-                onChange={(e) => setFormData({ ...formData, googleMapUrl: e.target.value })}
-                placeholder="https://maps.google.com/..."
-                className={`h-9 ${!validateUrl(formData.googleMapUrl) ? "border-red-500" : ""}`}
+            <div className="flex items-center space-x-2 pt-1">
+              <Switch
+                id="status"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 disabled={isSubmitting}
               />
-              {formData.googleMapUrl && validateUrl(formData.googleMapUrl) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(formData.googleMapUrl, "_blank")}
-                  disabled={isSubmitting}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              )}
+              <Label htmlFor="status" className="text-sm">
+                เปิดใช้งาน
+              </Label>
             </div>
-            {!validateUrl(formData.googleMapUrl) && formData.googleMapUrl && (
-              <p className="text-sm text-red-500">กรุณาใส่ URL ที่ถูกต้อง</p>
-            )}
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-1">
-            <Label htmlFor="youtubeUrl" className="text-sm">
-              URL YouTube
-            </Label>
-            <div className="flex space-x-2">
-              <Input
-                id="youtubeUrl"
-                type="url"
-                value={formData.youtubeUrl}
-                onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-                placeholder="https://youtube.com/watch?v=..."
-                className={`h-9 ${!validateUrl(formData.youtubeUrl) ? "border-red-500" : ""}`}
+        {/* URLs and Media */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">ลิงก์และสื่อ</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="mapUrl" className="text-sm">
+                URL Google Maps
+              </Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="mapUrl"
+                  type="url"
+                  value={formData.map_url || ""}
+                  onChange={(e) => setFormData({ ...formData, map_url: e.target.value })}
+                  placeholder="https://maps.app.goo.gl/ZQnNR1DCcXvtkGyN9"
+                  className={`h-9 ${errors.map_url ? "border-red-500" : ""}`}
+                  disabled={isSubmitting}
+                />
+                {formData.map_url && validateUrl(formData.map_url) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(formData.map_url, "_blank")}
+                    disabled={isSubmitting}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {errors.map_url && <p className="text-sm text-red-500 mt-1">{errors.map_url}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="youtubeUrl" className="text-sm">
+                URL YouTube
+              </Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="youtubeUrl"
+                  type="url"
+                  value={formData.youtube_url || ""}
+                  onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
+                  placeholder="https://youtu.be/dQw4w9WgXcQ?si=XEGNd4iD9vvYgJla"
+                  className={`h-9 ${errors.youtube_url ? "border-red-500" : ""}`}
+                  disabled={isSubmitting}
+                />
+                {formData.youtube_url && validateUrl(formData.youtube_url) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(formData.youtube_url, "_blank")}
+                    disabled={isSubmitting}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {errors.youtube_url && <p className="text-sm text-red-500 mt-1">{errors.youtube_url}</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Form Actions */}
+        <div className="flex justify-between pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            ยกเลิก
+          </Button>
+          <div className="flex gap-2">
+            {/* Show save button only in edit mode */}
+            {isEditMode && (
+              <Button 
+                type="button" 
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleSave} 
                 disabled={isSubmitting}
-              />
-              {formData.youtubeUrl && validateUrl(formData.youtubeUrl) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(formData.youtubeUrl, "_blank")}
-                  disabled={isSubmitting}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {!validateUrl(formData.youtubeUrl) && formData.youtubeUrl && (
-              <p className="text-sm text-red-500">กรุณาใส่ URL ที่ถูกต้อง</p>
+              >
+                {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
             )}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "กำลังดำเนินการ..." : "ถัดไป"}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Form Actions */}
-      <div className="flex justify-between pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          ยกเลิก
-        </Button>
-        <Button onClick={handleNext} disabled={isSubmitting}>
-          {isSubmitting ? "กำลังบันทึก..." : "ถัดไป"}
-        </Button>
+        </div>
       </div>
-    </div>
+    </form>
   )
 }
