@@ -30,6 +30,7 @@ export interface Trainer {
   province_id?: number
   tags?: string[]
   created_at: string
+  updated_at?: string
 }
 
 export interface PrivateClass {

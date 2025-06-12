@@ -19,114 +19,312 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Edit, Trash2, Loader2 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { toast } from "sonner"
 import type { Trainer } from "@/lib/types"
 import { trainersApi, gymsApi } from "@/lib/api"
+import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
   const [gyms, setGyms] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [freelancerFilter, setFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
+  const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
+  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
-  const [filterFreelancer, setFilterFreelancer] = useState<string>("all")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch trainers and gyms from API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        const [trainersData, gymsData] = await Promise.all([
-          trainersApi.getAll(),
-          gymsApi.getAll()
-        ])
-        setTrainers(trainersData.items)
-        setGyms(gymsData)
-        setError(null)
-      } catch (err) {
-        setError("Failed to fetch data")
-        console.error("Error fetching data:", err)
-        toast.error("ไม่สามารถโหลดข้อมูลได้")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-  const filteredTrainers = trainers.filter((trainer) => {
-    const fullNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
-    const fullNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
-    const matchesSearch =
-      fullNameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      fullNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFreelancer =
-      filterFreelancer === "all" ||
-      (filterFreelancer === "freelancer" && trainer.is_freelance) ||
-      (filterFreelancer === "staff" && !trainer.is_freelance)
-    return matchesSearch && matchesFreelancer
-  })
-
-  const handleAddTrainer = async (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
+  const fetchTrainers = async () => {
     try {
-      const newTrainer = await trainersApi.create(trainerData)
-      setTrainers([...trainers, newTrainer])
-      setIsAddDialogOpen(false)
-      const displayName = `${trainerData.first_name_th} ${trainerData.last_name_th}`.trim()
-      toast.success(`เพิ่มครูมวย "${displayName}" สำเร็จ`)
+      setIsLoading(true)
+      console.log("Fetching trainers from API...")
+      
+      const [trainersData, gymsData] = await Promise.all([
+        trainersApi.getAll(),
+        gymsApi.getAll()
+      ])
+      
+      console.log("Trainers API response:", trainersData)
+      console.log("Gyms API response:", gymsData)
+      
+      // Handle both direct array and nested data.items structure
+      const trainersArray = trainersData.items || trainersData || []
+      const gymsArray = gymsData.items || gymsData || []
+      
+      setTrainers(trainersArray)
+      setGyms(gymsArray)
+      setError(null)
+      
+      console.log("Successfully loaded:", trainersArray.length, "trainers and", gymsArray.length, "gyms")
     } catch (err) {
-      console.error("Error adding trainer:", err)
-      toast.error("ไม่สามารถเพิ่มครูมวยได้")
+      setError("Failed to fetch data")
+      console.error("Error fetching trainers/gyms:", err)
+      toast.error("ไม่สามารถโหลดข้อมูลครูมวยได้: " + (err instanceof Error ? err.message : "Unknown error"))
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleEditTrainer = async (trainerData: Omit<Trainer, "id" | "joinedDate">) => {
+  useEffect(() => {
+    fetchTrainers()
+  }, [])
+
+  const closeEditDialog = () => {
+    setEditingTrainer(null)
+    fetchTrainers()
+  }
+
+  const formatDate = (dateString: string | Date) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    const diffInDays = Math.floor(diffInHours / 24)
+    const diffInMonths = Math.floor(diffInDays / 30)
+    const diffInYears = Math.floor(diffInDays / 365)
+
+    // Show relative time for recent dates
+    if (diffInSeconds < 60) {
+      return "เมื่อสักครู่"
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes} นาทีที่แล้ว`
+    } else if (diffInHours < 24) {
+      return `${diffInHours} ชั่วโมงที่แล้ว`
+    } else if (diffInDays < 7) {
+      return `${diffInDays} วันที่แล้ว`
+    } else if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7)
+      return `${weeks} สัปดาห์ที่แล้ว`
+    } else if (diffInMonths < 12) {
+      return `${diffInMonths} เดือนที่แล้ว`
+    } else {
+      return `${diffInYears} ปีที่แล้ว`
+    }
+  }
+
+  const formatAbsoluteDate = (dateString: string | Date) => {
+    if (!dateString) return "-"
+    const date = new Date(dateString)
+    return date.toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Transform backend trainer data to form data structure
+  const transformTrainerToFormData = (trainer: Trainer) => {
+    return {
+      id: trainer.id,
+      firstName: {
+        th: trainer.first_name_th || "",
+        en: trainer.first_name_en || "",
+      },
+      lastName: {
+        th: trainer.last_name_th || "",
+        en: trainer.last_name_en || "",
+      },
+      email: trainer.email || "",
+      phone: trainer.phone || "",
+      status: trainer.is_active ? "active" : "inactive",
+      assignedGym: trainer.primaryGym?.id || "",
+      tags: trainer.tags || [],
+      isFreelancer: trainer.is_freelance || false,
+      bio: {
+        th: trainer.bio_th || "",
+        en: trainer.bio_en || "",
+      },
+      yearsOfExperience: 0, // This field doesn't exist in backend yet
+      privateClasses: [], // This field doesn't exist in backend yet
+      joinedDate: trainer.created_at,
+    }
+  }
+
+  // Transform form data to backend API structure
+  const transformFormDataToApi = (formData: any) => {
+    console.log("=== transformFormDataToApi called ===")
+    console.log("Received formData:", formData)
+    console.log("isFreelancer:", formData.isFreelancer)
+    console.log("assignedGym:", formData.assignedGym)
+    console.log("assignedGym type:", typeof formData.assignedGym)
+    console.log("assignedGym truthy:", !!formData.assignedGym)
+    
+    // Validation: Non-freelance trainers must have a gym
+    if (!formData.isFreelancer && !formData.assignedGym) {
+      console.log("=== VALIDATION FAILED ===")
+      console.log("isFreelancer:", formData.isFreelancer)
+      console.log("assignedGym:", formData.assignedGym)
+      throw new Error("ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม")
+    }
+
+    const apiData = {
+      first_name_th: formData.firstName.th,
+      first_name_en: formData.firstName.en,
+      last_name_th: formData.lastName.th,
+      last_name_en: formData.lastName.en,
+      email: formData.email,
+      phone: formData.phone,
+      bio_th: formData.bio.th,
+      bio_en: formData.bio.en,
+      is_active: formData.status === "active",
+      is_freelance: formData.isFreelancer,
+      gym_id: formData.isFreelancer ? null : (formData.assignedGym || null),
+      line_id: formData.lineId || "",
+      tags: formData.tags,
+    }
+    
+    console.log("Transformed API data:", apiData)
+    return apiData
+  }
+
+  const filteredAndSortedTrainers = trainers
+    .filter((trainer) => {
+      // Search filter
+      const fullNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
+      const fullNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
+      const searchMatch = fullNameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        fullNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        trainer.email?.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Status filter
+      const statusMatch = statusFilter === "all" || 
+        (statusFilter === "active" && trainer.is_active) ||
+        (statusFilter === "inactive" && !trainer.is_active)
+
+      // Freelancer filter
+      const freelancerMatch = freelancerFilter === "all" ||
+        (freelancerFilter === "freelancer" && trainer.is_freelance) ||
+        (freelancerFilter === "staff" && !trainer.is_freelance)
+
+      return searchMatch && statusMatch && freelancerMatch
+    })
+    .sort((a, b) => {
+      // Sort by selected field
+      let dateA: number, dateB: number
+      
+      if (sortField === "updated_at") {
+        dateA = new Date(a.updated_at || a.created_at || 0).getTime()
+        dateB = new Date(b.updated_at || b.created_at || 0).getTime()
+      } else {
+        dateA = new Date(a.created_at || 0).getTime()
+        dateB = new Date(b.created_at || 0).getTime()
+      }
+      
+      return sortBy === "newest" ? dateB - dateA : dateA - dateB
+    })
+
+  const toggleCreatedSort = () => {
+    if (sortField === "created_at") {
+      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+    } else {
+      setSortField("created_at")
+      setSortBy("newest")
+    }
+  }
+
+  const toggleUpdatedSort = () => {
+    if (sortField === "updated_at") {
+      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+    } else {
+      setSortField("updated_at")
+      setSortBy("newest")
+    }
+  }
+
+  const handleAddTrainer = async (formData: any) => {
+    try {
+      console.log("Adding trainer with form data:", formData)
+      const apiData = transformFormDataToApi(formData)
+      console.log("Transformed API data:", apiData)
+      
+      const result = await trainersApi.create(apiData)
+      console.log("Trainer created successfully:", result)
+      
+      setIsAddDialogOpen(false)
+      setEditingTrainer(null)
+      await fetchTrainers()
+      toast.success("เพิ่มครูมวยสำเร็จ")
+    } catch (err) {
+      console.error("Error adding trainer:", err)
+      const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
+      toast.error(errorMessage)
+    }
+  }
+
+  const handleEditTrainer = async (formData: any) => {
     if (editingTrainer) {
       try {
-        const updatedTrainer = await trainersApi.update(editingTrainer.id, trainerData)
-        setTrainers(trainers.map((trainer) => (trainer.id === editingTrainer.id ? updatedTrainer : trainer)))
-        setEditingTrainer(null)
-        const displayName = `${trainerData.first_name_th} ${trainerData.last_name_th}`.trim()
-        toast.success(`แก้ไขครูมวย "${displayName}" สำเร็จ`)
+        console.log("Editing trainer with form data:", formData)
+        const apiData = transformFormDataToApi(formData)
+        console.log("Transformed API data:", apiData)
+        
+        const result = await trainersApi.update(editingTrainer.id, apiData)
+        console.log("Trainer updated successfully:", result)
+        
+        closeEditDialog()
+        toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
         console.error("Error updating trainer:", err)
-        toast.error("ไม่สามารถแก้ไขครูมวยได้")
+        const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
+        toast.error(errorMessage)
+      }
+    }
+  }
+
+  const handleSaveTrainer = async (trainerData: Omit<Trainer, "id" | "created_at">) => {
+    if (editingTrainer) {
+      try {
+        await trainersApi.update(editingTrainer.id, trainerData)        
+      } catch (err) {
+        console.error("Error saving trainer:", err)
+        throw err 
       }
     }
   }
 
   const handleDeleteTrainer = async (trainerId: string) => {
     try {
-      const trainer = trainers.find((t) => t.id === trainerId)
       await trainersApi.delete(trainerId)
       setTrainers(trainers.filter((trainer) => trainer.id !== trainerId))
-      if (trainer) {
-        const displayName = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
-        toast.success(`ลบครูมวย "${displayName}" สำเร็จ`)
-      }
+      toast.success("ลบครูมวยสำเร็จ")
     } catch (err) {
       console.error("Error deleting trainer:", err)
       toast.error("ไม่สามารถลบครูมวยได้")
     }
   }
 
-  const getGymName = (gymId?: string) => {
-    if (!gymId) return "ไม่ได้มอบหมาย"
-    const gym = gyms.find((g) => g.id === gymId)
-    if (!gym) return "ยิมที่ไม่รู้จัก"
-
-    // Handle both old string format and new bilingual format
-    if (typeof gym.name === "string") {
-      return gym.name
-    } else {
-      return gym.primaryGym?.name_th || gym.primaryGym?.name_en || "ยิมที่ไม่รู้จัก"
+  const getGymName = (trainer: Trainer) => {
+    if (trainer.is_freelance) {
+      return <Badge variant="outline">อิสระ</Badge>
     }
+    
+    if (!trainer.primaryGym) {
+      return "-"
+    }
+
+    return trainer.primaryGym.name_th || trainer.primaryGym.name_en || "-"
   }
 
   if (isLoading) {
@@ -157,150 +355,248 @@ export default function TrainersPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">จัดการครูมวย</h1>
-              <p className="text-muted-foreground">ดู แก้ไข และจัดการข้อมูลครูมวยบนแพลตฟอร์ม พร้อมเชื่อมโยงยิมและสถานะการแสดงผล</p>
+        <TooltipProvider>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">จัดการครูมวยบนแพลตฟอร์ม</h1>
+                <p className="text-muted-foreground">คุณสามารถดู แก้ไข หรือเพิ่มครูมวยใหม่ รวมถึงจัดการรายละเอียดที่ใช้แสดงผลบนแพลตฟอร์ม</p>
+              </div>
+              <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+                setIsAddDialogOpen(open)
+                if (open) {
+                  setEditingTrainer(null)
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />สร้างครูมวยใหม่
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
+                  <div className="p-6 pb-4 border-b flex-shrink-0">
+                    <DialogHeader>
+                      <DialogTitle>เพิ่มครูมวยใหม่</DialogTitle>
+                    </DialogHeader>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-6 pb-6">
+                    <TrainerForm 
+                      gyms={gyms}
+                      onSubmit={handleAddTrainer} 
+                      onCancel={() => {
+                        setIsAddDialogOpen(false)
+                        setEditingTrainer(null)
+                      }} 
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>เพิ่มรายการใหม่</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] overflow-hidden p-0">
-                <div className="p-6 pb-0">
-                  <DialogHeader>
-                    <DialogTitle>เพิ่มครูมวยใหม่</DialogTitle>
-                  </DialogHeader>
-                </div>
-                <div className="px-6 pb-6">
-                  <TrainerForm onSubmit={handleAddTrainer} onCancel={() => setIsAddDialogOpen(false)} />
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="ค้นหาครูมวย..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="ค้นหาครูมวย..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Select value={freelancerFilter} onValueChange={(value: "all" | "freelancer" | "staff") => setFreelancerFilter(value)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="กรองตามประเภท" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
+                  <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
+                  <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="กรองตามสถานะ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="active">เปิดใช้งาน</SelectItem>
+                  <SelectItem value="inactive">ปิดการใช้งาน</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={filterFreelancer} onValueChange={setFilterFreelancer}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="กรองตามประเภท" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
-                <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
-                <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ชื่อ</TableHead>
-                  <TableHead>เบอร์โทร</TableHead>
-                  <TableHead>ประเภท</TableHead>
-                  <TableHead>ยิมที่มอบหมาย</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead className="text-right">จัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTrainers.map((trainer) => {
-                  const displayNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
-                  const displayNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>รหัสครูมวย</TableHead>
+                    <TableHead>ชื่อครูมวย</TableHead>
+                    <TableHead>เบอร์โทร</TableHead>
+                    <TableHead>ประเภท</TableHead>
+                    <TableHead>ยิมที่มอบหมาย</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        onClick={toggleCreatedSort}
+                        className="p-0 h-auto font-semibold hover:bg-transparent"
+                      >
+                        วันที่ลงทะเบียน
+                        {sortField === "created_at" ? (
+                          sortBy === "newest" ? (
+                            <ArrowDown className="ml-1 h-4 w-4" />
+                          ) : (
+                            <ArrowUp className="ml-1 h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="ml-1 h-4 w-4 opacity-30" />
+                        )}
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        onClick={toggleUpdatedSort}
+                        className="p-0 h-auto font-semibold hover:bg-transparent"
+                      >
+                        อัปเดตล่าสุด
+                        {sortField === "updated_at" ? (
+                          sortBy === "newest" ? (
+                            <ArrowDown className="ml-1 h-4 w-4" />
+                          ) : (
+                            <ArrowUp className="ml-1 h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="ml-1 h-4 w-4 opacity-30" />
+                        )}
+                      </Button>
+                    </TableHead>
+                    <TableHead>สถานะการแสดงผล</TableHead>
+                    <TableHead className="text-right">จัดการข้อมูล</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAndSortedTrainers.map((trainer, index) => {
+                    const displayNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
+                    const displayNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
 
-                  return (
-                    <TableRow key={trainer.id}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <div className="font-medium">{displayNameTh}</div>
-                          {displayNameEn && <div className="text-sm text-muted-foreground">{displayNameEn}</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell>{trainer.phone || "ไม่ได้ระบุ"}</TableCell>
-                      <TableCell>
-                        <Badge variant={trainer.is_freelance ? "default" : "secondary"}>
-                          {trainer.is_freelance ? "ฟรีแลนซ์" : "พนักงาน"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {trainer.is_freelance ? <Badge variant="outline">อิสระ</Badge> : getGymName(trainer.primaryGym?.id)}
-                      </TableCell>
-                      <TableCell>
-                        
-                        <Badge 
-                        className={`pointer-events-none ${trainer.is_active ? "bg-green-500" : "bg-gray-100"}`}
-                        variant={trainer.is_active ? "default" : "secondary"}>
-                          {trainer.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Dialog
-                            open={editingTrainer?.id === trainer.id}
-                            onOpenChange={(open) => !open && setEditingTrainer(null)}
-                          >
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" onClick={() => setEditingTrainer(trainer)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] overflow-hidden p-0">
-                              <div className="p-6 pb-0">
-                                <DialogHeader>
-                                  <DialogTitle>แก้ไขครูมวย</DialogTitle>
-                                </DialogHeader>
-                              </div>
-                              <div className="px-6 pb-6">
-                                <TrainerForm trainer={trainer} onSubmit={handleEditTrainer} onCancel={() => setEditingTrainer(null)} />
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                    return (
+                      <TableRow key={trainer.id || `trainer-${index}`}>
+                        <TableCell className="font-mono text-sm">{truncateId(trainer.id)}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>
+                            <div className="font-medium">{displayNameTh}</div>
+                            {displayNameEn && <div className="text-sm text-muted-foreground">{displayNameEn}</div>}
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatPhoneDisplay(trainer.phone || "")}</TableCell>
+                        <TableCell>
+                          <Badge variant={trainer.is_freelance ? "default" : "secondary"}>
+                            {trainer.is_freelance ? "ฟรีแลนซ์" : "พนักงาน"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{getGymName(trainer)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <Tooltip>
+                            <TooltipTrigger>
+                              {formatDate(trainer.created_at)}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {formatAbsoluteDate(trainer.created_at)}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <Tooltip>
+                            <TooltipTrigger>
+                              {trainer.updated_at ? formatDate(trainer.updated_at) : "-"}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {trainer.updated_at ? formatAbsoluteDate(trainer.updated_at) : "-"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            className={`pointer-events-none ${trainer.is_active ? "bg-green-500" : "bg-gray-100"}`}
+                            variant={trainer.is_active ? "default" : "secondary"}>
+                            {trainer.is_active ? "เปิดใช้งาน" : "ปิดการใช้งาน"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Dialog 
+                              key={`edit-dialog-${trainer.id}`}
+                              open={editingTrainer?.id === trainer.id} 
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  closeEditDialog()
+                                }
+                              }}
+                              modal={true}
+                            >
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  setEditingTrainer(trainer)
+                                }}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent 
+                                className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col"
+                                onEscapeKeyDown={() => closeEditDialog()}
+                                onPointerDownOutside={() => closeEditDialog()}
+                              >
+                                <div className="p-6 pb-4 border-b flex-shrink-0">
+                                  <DialogHeader>
+                                    <DialogTitle>แก้ไขครูมวย</DialogTitle>
+                                  </DialogHeader>
+                                </div>
+                                <div className="flex-1 overflow-y-auto px-6 pb-6">
+                                  <TrainerForm 
+                                    trainer={transformTrainerToFormData(trainer) as any}
+                                    gyms={gyms}
+                                    onSubmit={handleEditTrainer} 
+                                    onCancel={() => closeEditDialog()}
+                                  />
+                                </div>
+                              </DialogContent>
+                            </Dialog>
 
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบครูมวยและข้อมูลของเขาออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteTrainer(trainer.id)}>ลบ</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-          {filteredTrainers.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">ไม่พบครูมวย</p>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบครูมวยและข้อมูลของเขาออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteTrainer(trainer.id)}>ลบ</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
-          )}
-        </div>
+
+            {filteredAndSortedTrainers.length === 0 && (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">ไม่พบครูมวย</p>
+              </div>
+            )}
+          </div>
+        </TooltipProvider>
       </AdminLayout>
     </ProtectedRoute>
   )
