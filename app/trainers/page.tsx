@@ -160,8 +160,8 @@ export default function TrainersPage() {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">ครูมวย</h1>
-              <p className="text-muted-foreground">จัดการครูมวยในแพลตฟอร์ม</p>
+              <h1 className="text-3xl font-bold tracking-tight">จัดการครูมวย</h1>
+              <p className="text-muted-foreground">ดู แก้ไข และจัดการข้อมูลครูมวยบนแพลตฟอร์ม พร้อมเชื่อมโยงยิมและสถานะการแสดงผล</p>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
