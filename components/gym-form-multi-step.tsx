@@ -54,6 +54,7 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly }: GymFor
       onSubmit={handleFinalSubmit}
       onBack={handleStep2Back}
       onSave={handleSave}
+      onCancel={onCancel}
     />
   )
 }

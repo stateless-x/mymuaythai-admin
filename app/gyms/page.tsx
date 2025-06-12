@@ -71,8 +71,9 @@ export default function GymsPage() {
   const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     try {
       const newGym = await gymsApi.create(gymData)
-      setGyms([...gyms, newGym])
       setIsAddDialogOpen(false)
+      setEditingGym(null)
+      await fetchGyms()
       toast.success("เพิ่มยิมสำเร็จ")
     } catch (err) {
       console.error("Error adding gym:", err)
@@ -83,9 +84,8 @@ export default function GymsPage() {
   const handleEditGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        const updatedGym = await gymsApi.update(editingGym.id, gymData)
-        setGyms(gyms.map((gym) => (gym.id === editingGym.id ? updatedGym : gym)))
-        closeEditDialog() // Use helper function
+        await gymsApi.update(editingGym.id, gymData)
+        closeEditDialog()
         toast.success("แก้ไขยิมสำเร็จ")
       } catch (err) {
         console.error("Error updating gym:", err)
@@ -97,10 +97,7 @@ export default function GymsPage() {
   const handleSaveGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        const updatedGym = await gymsApi.update(editingGym.id, gymData)        
-        setGyms(gyms.map((gym) => 
-          gym.id === editingGym.id ? { ...gym, ...updatedGym } : gym
-        ))
+        await gymsApi.update(editingGym.id, gymData)        
       } catch (err) {
         console.error("Error saving gym:", err)
         throw err 
@@ -153,7 +150,12 @@ export default function GymsPage() {
               <h1 className="text-3xl font-bold tracking-tight">ยิม</h1>
               <p className="text-muted-foreground">จัดการยิมในแพลตฟอร์ม</p>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+              setIsAddDialogOpen(open)
+              if (open) {
+                setEditingGym(null)
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />สร้างยิมใหม่
@@ -166,7 +168,10 @@ export default function GymsPage() {
                   </DialogHeader>
                 </div>
                 <div className="flex-1 overflow-y-auto px-6 pb-6">
-                  <GymForm onSubmit={handleAddGym} onCancel={() => setIsAddDialogOpen(false)} />
+                  <GymForm onSubmit={handleAddGym} onCancel={() => {
+                    setIsAddDialogOpen(false)
+                    setEditingGym(null)
+                  }} />
                 </div>
               </DialogContent>
             </Dialog>
@@ -219,6 +224,7 @@ export default function GymsPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Dialog 
+                          key={`edit-dialog-${gym.id}`}
                           open={editingGym?.id === gym.id} 
                           onOpenChange={(open) => {
                             if (!open) {

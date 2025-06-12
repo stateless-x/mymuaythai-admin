@@ -13,6 +13,7 @@ interface GymFormStep2Props {
   onSubmit: (data: Omit<Gym, "id" | "joinedDate">) => void;
   onBack: () => void;
   onSave: (data: Partial<Gym>) => Promise<void>;
+  onCancel: () => void;
 }
 
 export function GymFormStep2({
@@ -21,6 +22,7 @@ export function GymFormStep2({
   onSubmit,
   onBack,
   onSave,
+  onCancel,
 }: GymFormStep2Props) {
   const [formData, setFormData] = useState({
     ...initialData,
@@ -35,13 +37,15 @@ export function GymFormStep2({
     try {
       // Merge all form data properly
       const completeFormData = {
-        ...initialData, // Step 1 data
+        ...initialData, // Step 1 data (already cleaned)
         ...formData, // Step 2 data (images, tags)
       };
-      console.log("Calling onSave with completeFormData:", completeFormData);
-      await onSave(completeFormData);
       
-      console.log("onSave completed, now calling onSubmit");
+      // Only call onSave in edit mode
+      if (gym) {
+        await onSave(completeFormData);
+      }
+      
       onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
     } catch (error) {
       console.error("Error submitting gym form:", error);
@@ -53,25 +57,27 @@ export function GymFormStep2({
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
-      // Merge all form data properly
       const completeFormData = {
-        ...initialData, // Step 1 data
-        ...formData, // Step 2 data (images, tags)
-      };
-      console.log("completeFormData", completeFormData);
-      
+        ...initialData,
+        ...formData,
+      };      
+
       await onSave(completeFormData);
       
-      // Show success toast without closing dialog
       const { toast } = await import("sonner");
       toast.success("บันทึกข้อมูลสำเร็จ", {
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
       });
+      
+      // Close the dialog after successful save in edit mode
+      if (gym) {
+        onCancel();
+      }
     } catch (error) {
       console.error("Error saving:", error);
       const { toast } = await import("sonner");
       toast.error("ไม่สามารถบันทึกข้อมูลได้", {
-        description: "กรุณาลองอีกครั้งหรือติดต่อผู้ดูแลระบบ"
+        description: "กรุณาลองอีกครั้ง"
       });
     } finally {
       setIsSubmitting(false);

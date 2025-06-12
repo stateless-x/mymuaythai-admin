@@ -78,7 +78,12 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     setIsSubmitting(true)
     try {
       const cleanedData = cleanFormDataForAPI(formData)
-      await onSave(cleanedData)
+      
+      // Only save for new gyms, not when editing existing gyms and just navigating
+      if (!gym) {
+        await onSave(cleanedData)
+      }
+      
       onNext(cleanedData)
     } catch (error) {
       console.error("Error saving:", error)
