@@ -263,6 +263,10 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
               <Label htmlFor="province" className="text-md font-medium">
                 จังหวัด *
               </Label>
+              {/* Overlay to dim the screen when popover is open */}
+              {isOpen && (
+                <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
+              )}
               <Popover open={isOpen} onOpenChange={setIsOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -270,7 +274,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     role="combobox"
                     aria-expanded={isOpen}
                     className={cn(
-                      "h-9 w-[300px] justify-between text-left",
+                      "h-9 w-[300px] justify-between text-left relative z-50",
                       !formData.province_id && "text-muted-foreground",
                       errors.province_id && "border-red-500"
                     )}
@@ -286,34 +290,47 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
+                <PopoverContent className="w-[300px] p-0 z-50" align="start">
                   <Command>
                     <CommandInput
                       placeholder="ค้นหาจังหวัด..."
                       className="h-9"
                     />
                     <CommandEmpty>ไม่พบจังหวัดที่ค้นหา</CommandEmpty>
-                    <CommandList className="max-h-[200px] overflow-y-auto">
-                      <CommandGroup>
-                        {provinces.map((province) => (
-                          <CommandItem
-                            key={province.id}
-                            value={province.name_th}
-                            onSelect={() => {
-                              setFormData({ ...formData, province_id: province.id })
-                              setIsOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                formData.province_id === province.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {province.name_th}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                    <CommandList>
+                      <div 
+                        className="max-h-[200px] overflow-y-auto"
+                        style={{
+                          scrollbarWidth: 'thin',
+                          scrollbarColor: '#d1d5db #f3f4f6'
+                        }}
+                        onWheel={(e) => {
+                          e.stopPropagation();
+                          const target = e.currentTarget;
+                          target.scrollTop += e.deltaY;
+                        }}
+                      >
+                        <CommandGroup>
+                          {provinces.map((province) => (
+                            <CommandItem
+                              key={province.id}
+                              value={province.name_th}
+                              onSelect={() => {
+                                setFormData({ ...formData, province_id: province.id })
+                                setIsOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.province_id === province.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {province.name_th}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </div>
                     </CommandList>
                   </Command>
                 </PopoverContent>

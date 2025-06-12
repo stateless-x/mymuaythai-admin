@@ -63,6 +63,7 @@ export interface Gym {
   line_id?: string
   is_active: boolean
   created_at: string
+  updated_at?: string
   images?: string[]
   tags?: string[]
   associatedTrainers?: string[]
