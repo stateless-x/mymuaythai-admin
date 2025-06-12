@@ -9,6 +9,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExternalLink } from "lucide-react"
 import type { Gym } from "@/lib/types"
+import { 
+  validateUrl, 
+  validateFormData,
+  formatPhoneInput, 
+  cleanPhoneForAPI 
+} from "@/lib/utils/form-helpers"
 
 interface GymFormStep1Props {
   gym?: Gym
@@ -35,86 +41,28 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name_th || !formData.name_th.trim()) {
-      newErrors.name_th = "จำเป็นต้องระบุชื่อยิมภาษาไทย"
-    }
-
-    if (!formData.name_en || !formData.name_en.trim()) {
-      newErrors.name_en = "จำเป็นต้องระบุชื่อยิมภาษาอังกฤษ"
-    }
-
-    if (!formData.phone || !formData.phone.trim()) {
-      newErrors.phone = "จำเป็นต้องระบุเบอร์โทรศัพท์"
-    }
-
-    if (!formData.description_th || !formData.description_th.trim()) {
-      newErrors.description_th = "จำเป็นต้องระบุคำอธิบายภาษาไทย"
-    }
-
-    if (!formData.description_en || !formData.description_en.trim()) {
-      newErrors.description_en = "จำเป็นต้องระบุคำอธิบายภาษาอังกฤษ"
-    }
-
-    if (formData.map_url && !validateUrl(formData.map_url)) {
-      newErrors.map_url = "กรุณาใส่ URL Google Maps ที่ถูกต้อง"
-    }
-
-    if (formData.youtube_url && !validateUrl(formData.youtube_url)) {
-      newErrors.youtube_url = "กรุณาใส่ URL YouTube ที่ถูกต้อง"
-    }
-
-    if (formData.email && !validateEmail(formData.email)) {
-      newErrors.email = "กรุณาใส่อีเมลที่ถูกต้อง"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const requiredFields = ['name_th', 'name_en', 'phone', 'description_th', 'description_en']
+    const formErrors = validateFormData(formData, requiredFields)
+    setErrors(formErrors)
+    return Object.keys(formErrors).length === 0
   }
 
-  const validateUrl = (url: string) => {
-    if (!url) return true
-    try {
-      new URL(url)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  const validateEmail = (email: string) => {
-    if (!email) return true
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  }
-
-  const formatPhoneInput = (value: string) => {
-    // Remove all non-digit characters
-    const digits = value.replace(/\D/g, '')
+  // Helper function to clean form data for API (empty strings to undefined, clean phone)
+  const cleanFormDataForAPI = (data: typeof formData) => {
+    const cleanedData = { ...data }
     
-    // Limit to 10 digits
-    const limitedDigits = digits.slice(0, 10)
+    // Convert empty strings to undefined for optional fields
+    if (cleanedData.email === "") cleanedData.email = undefined
+    if (cleanedData.map_url === "") cleanedData.map_url = undefined
+    if (cleanedData.youtube_url === "") cleanedData.youtube_url = undefined
+    if (cleanedData.line_id === "") cleanedData.line_id = undefined
     
-    if (limitedDigits.length <= 2) {
-      return limitedDigits
-    } else if (limitedDigits.length <= 5) {
-      return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2)}`
-    } else if (limitedDigits.length <= 8) {
-      return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
-    } else {
-      // For 9+ digits, use different format
-      if (limitedDigits.length === 9) {
-        return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
-      } else {
-        // For 10 digits
-        return `${limitedDigits.slice(0, 3)}-${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`
-      }
+    // Clean phone number (remove dashes)
+    if (cleanedData.phone) {
+      cleanedData.phone = cleanPhoneForAPI(cleanedData.phone)
     }
-  }
-
-  // Helper function to clean phone number for API (remove dashes)
-  const cleanPhoneForAPI = (phone: string) => {
-    return phone.replace(/\D/g, '')
+    
+    return cleanedData
   }
 
   const handleNext = async (e?: React.FormEvent) => {
@@ -129,11 +77,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
 
     setIsSubmitting(true)
     try {
-      // Clean phone number before sending to API
-      const cleanedData = {
-        ...formData,
-        phone: formData.phone ? cleanPhoneForAPI(formData.phone) : formData.phone
-      }
+      const cleanedData = cleanFormDataForAPI(formData)
       await onSave(cleanedData)
       onNext(cleanedData)
     } catch (error) {
@@ -154,11 +98,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
 
     setIsSubmitting(true)
     try {
-      // Clean phone number before sending to API
-      const cleanedData = {
-        ...formData,
-        phone: formData.phone ? cleanPhoneForAPI(formData.phone) : formData.phone
-      }
+      const cleanedData = cleanFormDataForAPI(formData)
       await onSave(cleanedData)
       const { toast } = await import('sonner')
       toast.success("บันทึกข้อมูลสำเร็จ", {
@@ -262,7 +202,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
+                  value={formData.email || ""}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="contact@example.com"
                   disabled={isSubmitting}

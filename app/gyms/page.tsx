@@ -24,6 +24,7 @@ import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import type { Gym } from "@/lib/types"
 import { gymsApi } from "@/lib/api"
+import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 
 export default function GymsPage() {
   const [gyms, setGyms] = useState<Gym[]>([])
@@ -32,29 +33,6 @@ export default function GymsPage() {
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const truncateId = (id: string | undefined) => {
-    if (!id || id.length <= 6) return id || ""
-    return `${id.slice(0, 4)}...${id.slice(-2)}`
-  }
-
-  // Helper function to format phone numbers
-  const formatPhone = (phone: string) => {
-    if (!phone) return "ไม่ได้ระบุ"
-    
-    // Remove any non-digit characters
-    const digits = phone.replace(/\D/g, '')
-
-    if (digits.length === 10) {
-      // Format as XXX-XXX-XXXX
-      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
-    } else if (digits.length === 9) {
-      // Format as XX-XXX-XXXX
-      return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`
-    } else {
-      return phone
-    }
-  }
 
   const fetchGyms = async () => {
     try {
@@ -218,8 +196,8 @@ export default function GymsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredGyms.map((gym) => (
-                  <TableRow key={gym.id}>
+                {filteredGyms.map((gym, index) => (
+                  <TableRow key={gym.id || `gym-${index}`}>
                     <TableCell className="font-mono text-sm">{truncateId(gym.id)}</TableCell>
                     <TableCell className="font-medium">
                       <div>
@@ -229,7 +207,7 @@ export default function GymsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{formatPhone(gym.phone || "")}</TableCell>
+                    <TableCell>{formatPhoneDisplay(gym.phone || "")}</TableCell>
                     <TableCell>
                       <Badge 
                       className={`pointer-events-none ${gym.is_active ? "bg-green-500" : "bg-gray-100"}`}
