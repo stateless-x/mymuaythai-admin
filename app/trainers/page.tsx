@@ -197,16 +197,18 @@ export default function TrainersPage() {
     }
 
     return privateClasses.map(cls => ({
-      id: cls.id && cls.id.startsWith('temp-') ? undefined : cls.id, // Remove temp IDs
-      name_th: cls.name?.th || "",
-      name_en: cls.name?.en || "",
-      description_th: cls.description?.th || "",
-      description_en: cls.description?.en || "",
-      duration_minutes: cls.duration || 60,
-      max_students: cls.maxStudents || 1,
-      price: cls.price ? cls.price * 100 : 100000, // Convert from baht to satang
-      is_active: cls.isActive !== false,
-      is_private_class: true,
+      name: {
+        th: cls.name?.th || "",
+        en: cls.name?.en || "",
+      },
+      description: {
+        th: cls.description?.th || "",
+        en: cls.description?.en || "",
+      },
+      duration: cls.duration || 60,
+      maxStudents: cls.maxStudents || 1,
+      price: cls.price || 1000, // Keep in baht as backend will convert to satang
+      isActive: cls.isActive !== false,
     }))
   }
 
@@ -330,9 +332,14 @@ export default function TrainersPage() {
   const handleEditTrainer = async (formData: TrainerFormData) => {
     if (editingTrainer) {
       try {
-        console.log("Editing trainer with form data:", formData)
+        console.log("=== EDITING TRAINER ===")
+        console.log("Original editing trainer:", editingTrainer)
+        console.log("Form data received:", formData)
+        console.log("privateClasses in form data:", formData.privateClasses)
+        
         const apiData = transformFormDataToApi(formData)
-        console.log("Transformed API data:", apiData)
+        console.log("Final transformed API data:", apiData)
+        console.log("Classes being sent to API:", apiData.classes)
         
         const result = await trainersApi.update(editingTrainer.id, apiData)
         console.log("Trainer updated successfully:", result)
@@ -341,6 +348,12 @@ export default function TrainersPage() {
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
         console.error("Error updating trainer:", err)
+        console.error("Error details:", {
+          message: err instanceof Error ? err.message : "Unknown error",
+          stack: err instanceof Error ? err.stack : undefined,
+          editingTrainerId: editingTrainer.id,
+          formData: formData
+        })
         const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
         toast.error(errorMessage)
       }

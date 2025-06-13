@@ -22,13 +22,35 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     },
   }
 
+  console.log("API Request:", {
+    endpoint: `${API_BASE_URL}${endpoint}`,
+    method: config.method || "GET",
+    headers: config.headers,
+    body: options.body ? JSON.parse(options.body as string) : undefined
+  })
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
   
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`)
+    let errorDetails
+    try {
+      errorDetails = await response.json()
+    } catch {
+      errorDetails = await response.text()
+    }
+    
+    console.error("API Error Response:", {
+      status: response.status,
+      statusText: response.statusText,
+      details: errorDetails
+    })
+    
+    throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`)
   }
   
-  return response.json()
+  const result = await response.json()
+  console.log("API Response:", result)
+  return result
 }
 
 // Gyms API
