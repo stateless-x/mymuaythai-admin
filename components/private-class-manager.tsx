@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,21 +48,345 @@ interface ClassFormData {
   isPrivateClass: boolean // Add private class type
 }
 
+const defaultFormData: ClassFormData = {
+  name: { th: "", en: "" },
+  description: { th: "", en: "" },
+  duration: 60,
+  price: "1000",
+  maxStudents: 1,
+  isActive: true,
+  isPrivateClass: true,
+}
+
+// Form component for adding classes - moved outside to prevent re-creation
+interface AddFormProps {
+  formData: ClassFormData
+  setFormData: React.Dispatch<React.SetStateAction<ClassFormData>>
+  errors: Record<string, string>
+  onPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+function AddForm({ formData, setFormData, errors, onPriceChange }: AddFormProps) {
+  return (
+    <div className="space-y-4">
+      {/* Thai Information */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center">🇹🇭 ข้อมูลภาษาไทย</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="add-classNameTh">ชื่อคลาส (TH) *</Label>
+            <Input
+              id="add-classNameTh"
+              value={formData.name.th}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: { ...prev.name, th: e.target.value } }))}
+              placeholder="เช่น การฝึกมวยไทยแบบ 1 ต่อ 1"
+              className={errors.nameTh ? "border-red-500" : ""}
+            />
+            {errors.nameTh && <p className="text-sm text-red-500 mt-1">{errors.nameTh}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-classDescriptionTh">คำอธิบาย (TH) *</Label>
+            <Textarea
+              id="add-classDescriptionTh"
+              value={formData.description.th}
+              onChange={(e) =>
+                setFormData(prev => ({ ...prev, description: { ...prev.description, th: e.target.value } }))
+              }
+              placeholder="อธิบายสิ่งที่คลาสนี้รวม..."
+              rows={3}
+              className={`resize-none ${errors.descriptionTh ? "border-red-500" : ""}`}
+            />
+            {errors.descriptionTh && <p className="text-sm text-red-500 mt-1">{errors.descriptionTh}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* English Information */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center">🇬🇧 ข้อมูลภาษาอังกฤษ</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="add-classNameEn">Class Name (EN) *</Label>
+            <Input
+              id="add-classNameEn"
+              value={formData.name.en}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: { ...prev.name, en: e.target.value } }))}
+              placeholder="e.g. One-on-One Muay Thai Training"
+              className={errors.nameEn ? "border-red-500" : ""}
+            />
+            {errors.nameEn && <p className="text-sm text-red-500 mt-1">{errors.nameEn}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-classDescriptionEn">Description (EN) *</Label>
+            <Textarea
+              id="add-classDescriptionEn"
+              value={formData.description.en}
+              onChange={(e) =>
+                setFormData(prev => ({ ...prev, description: { ...prev.description, en: e.target.value } }))
+              }
+              placeholder="Describe what this class includes..."
+              rows={3}
+              className={`resize-none ${errors.descriptionEn ? "border-red-500" : ""}`}
+            />
+            {errors.descriptionEn && <p className="text-sm text-red-500 mt-1">{errors.descriptionEn}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Class Details */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="add-class-type">ประเภทคลาส</Label>
+          <Select
+            value={formData.isPrivateClass ? "private" : "group"}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="เลือกประเภทคลาส" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="private">เรียนส่วนตัว</SelectItem>
+              <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="add-duration">ระยะเวลา (นาที)</Label>
+            <Input
+              id="add-duration"
+              type="number"
+              min="15"
+              max="180"
+              value={formData.duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, duration: Number.parseInt(e.target.value) || 60 }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-max-students">นักเรียนสูงสุด</Label>
+            <Input
+              id="add-max-students"
+              type="number"
+              min="1"
+              max="10"
+              value={formData.maxStudents}
+              onChange={(e) => setFormData(prev => ({ ...prev, maxStudents: Number.parseInt(e.target.value) || 1 }))}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="add-price">ราคา (บาท) *</Label>
+          <div className="relative">
+            <Input
+              id="add-price"
+              type="text"
+              value={formData.price}
+              onChange={onPriceChange}
+              placeholder="1000"
+              className={`pr-12 ${errors.price ? "border-red-500" : ""}`}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">฿</span>
+            </div>
+          </div>
+          {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="add-is-active"
+            checked={formData.isActive}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+          />
+          <Label htmlFor="add-is-active">ใช้งาน (พร้อมสำหรับการจอง)</Label>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Form component for editing classes - moved outside to prevent re-creation
+interface EditFormProps {
+  formData: ClassFormData
+  setFormData: React.Dispatch<React.SetStateAction<ClassFormData>>
+  errors: Record<string, string>
+  onPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+function EditForm({ formData, setFormData, errors, onPriceChange }: EditFormProps) {
+  return (
+    <div className="space-y-4">
+      {/* Thai Information */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center">🇹🇭 ข้อมูลภาษาไทย</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="edit-classNameTh">ชื่อคลาส (TH) *</Label>
+            <Input
+              id="edit-classNameTh"
+              value={formData.name.th}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: { ...prev.name, th: e.target.value } }))}
+              placeholder="เช่น การฝึกมวยไทยแบบ 1 ต่อ 1"
+              className={errors.nameTh ? "border-red-500" : ""}
+            />
+            {errors.nameTh && <p className="text-sm text-red-500 mt-1">{errors.nameTh}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-classDescriptionTh">คำอธิบาย (TH) *</Label>
+            <Textarea
+              id="edit-classDescriptionTh"
+              value={formData.description.th}
+              onChange={(e) =>
+                setFormData(prev => ({ ...prev, description: { ...prev.description, th: e.target.value } }))
+              }
+              placeholder="อธิบายสิ่งที่คลาสนี้รวม..."
+              rows={3}
+              className={`resize-none ${errors.descriptionTh ? "border-red-500" : ""}`}
+            />
+            {errors.descriptionTh && <p className="text-sm text-red-500 mt-1">{errors.descriptionTh}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* English Information */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center">🇬🇧 ข้อมูลภาษาอังกฤษ</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="edit-classNameEn">Class Name (EN) *</Label>
+            <Input
+              id="edit-classNameEn"
+              value={formData.name.en}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: { ...prev.name, en: e.target.value } }))}
+              placeholder="e.g. One-on-One Muay Thai Training"
+              className={errors.nameEn ? "border-red-500" : ""}
+            />
+            {errors.nameEn && <p className="text-sm text-red-500 mt-1">{errors.nameEn}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-classDescriptionEn">Description (EN) *</Label>
+            <Textarea
+              id="edit-classDescriptionEn"
+              value={formData.description.en}
+              onChange={(e) =>
+                setFormData(prev => ({ ...prev, description: { ...prev.description, en: e.target.value } }))
+              }
+              placeholder="Describe what this class includes..."
+              rows={3}
+              className={`resize-none ${errors.descriptionEn ? "border-red-500" : ""}`}
+            />
+            {errors.descriptionEn && <p className="text-sm text-red-500 mt-1">{errors.descriptionEn}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Class Details */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-class-type">ประเภทคลาส</Label>
+          <Select
+            value={formData.isPrivateClass ? "private" : "group"}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="เลือกประเภทคลาส" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="private">เรียนส่วนตัว</SelectItem>
+              <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-duration">ระยะเวลา (นาที)</Label>
+            <Input
+              id="edit-duration"
+              type="number"
+              min="15"
+              max="180"
+              value={formData.duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, duration: Number.parseInt(e.target.value) || 60 }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-max-students">นักเรียนสูงสุด</Label>
+            <Input
+              id="edit-max-students"
+              type="number"
+              min="1"
+              max="10"
+              value={formData.maxStudents}
+              onChange={(e) => setFormData(prev => ({ ...prev, maxStudents: Number.parseInt(e.target.value) || 1 }))}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-price">ราคา (บาท) *</Label>
+          <div className="relative">
+            <Input
+              id="edit-price"
+              type="text"
+              value={formData.price}
+              onChange={onPriceChange}
+              placeholder="1000"
+              className={`pr-12 ${errors.price ? "border-red-500" : ""}`}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">฿</span>
+            </div>
+          </div>
+          {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="edit-is-active"
+            checked={formData.isActive}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+          />
+          <Label htmlFor="edit-is-active">ใช้งาน (พร้อมสำหรับการจอง)</Label>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function PrivateClassManager({ privateClasses, onClassesChange, disabled = false }: PrivateClassManagerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingClass, setEditingClass] = useState<PrivateClass | null>(null)
-  const [formData, setFormData] = useState<ClassFormData>({
-    name: { th: "", en: "" },
-    description: { th: "", en: "" },
-    duration: 60,
-    price: "1000",
-    maxStudents: 1,
-    isActive: true,
-    isPrivateClass: true,
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  
+  // Separate form data for add and edit operations
+  const [addFormData, setAddFormData] = useState<ClassFormData>(defaultFormData)
+  const [editFormData, setEditFormData] = useState<ClassFormData>(defaultFormData)
+  
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({})
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
-  const validateForm = () => {
+  const validateForm = useCallback((formData: ClassFormData, setErrors: (errors: Record<string, string>) => void) => {
     const newErrors: Record<string, string> = {}
 
     if (!formData.name.th.trim()) {
@@ -87,65 +411,76 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [])
 
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     // Only allow numbers, no decimals
     if (value === '' || /^\d+$/.test(value)) {
-      setFormData({ ...formData, price: value })
+      setAddFormData(prev => ({ ...prev, price: value }))
     }
-  }
+  }, [])
 
-  const handleAddClass = () => {
-    if (!validateForm()) return
+  const handleEditPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    // Only allow numbers, no decimals
+    if (value === '' || /^\d+$/.test(value)) {
+      setEditFormData(prev => ({ ...prev, price: value }))
+    }
+  }, [])
+
+  const handleAddClass = useCallback(() => {
+    if (!validateForm(addFormData, setAddErrors)) return
 
     const newClass: PrivateClass = {
       id: Date.now().toString(),
-      name: formData.name,
-      description: formData.description,
-      duration: formData.duration,
-      price: Number(formData.price),
+      name: addFormData.name,
+      description: addFormData.description,
+      duration: addFormData.duration,
+      price: Number(addFormData.price),
       currency: "THB",
-      maxStudents: formData.maxStudents,
-      isActive: formData.isActive,
+      maxStudents: addFormData.maxStudents,
+      isActive: addFormData.isActive,
       createdDate: new Date().toISOString().split("T")[0],
     }
 
     onClassesChange([...privateClasses, newClass])
-    resetForm()
+    setAddFormData({ ...defaultFormData })
+    setAddErrors({})
     setIsAddDialogOpen(false)
-  }
+  }, [addFormData, privateClasses, onClassesChange, validateForm])
 
-  const handleEditClass = () => {
-    if (!editingClass || !validateForm()) return
+  const handleEditClass = useCallback(() => {
+    if (!editingClass || !validateForm(editFormData, setEditErrors)) return
 
     const updatedClasses = privateClasses.map((cls) =>
       cls.id === editingClass.id
         ? {
             ...cls,
-            name: formData.name,
-            description: formData.description,
-            duration: formData.duration,
-            price: Number(formData.price),
-            maxStudents: formData.maxStudents,
-            isActive: formData.isActive,
+            name: editFormData.name,
+            description: editFormData.description,
+            duration: editFormData.duration,
+            price: Number(editFormData.price),
+            maxStudents: editFormData.maxStudents,
+            isActive: editFormData.isActive,
           }
         : cls,
     )
 
     onClassesChange(updatedClasses)
     setEditingClass(null)
-    resetForm()
-  }
+    setIsEditDialogOpen(false)
+    setEditFormData({ ...defaultFormData })
+    setEditErrors({})
+  }, [editingClass, editFormData, privateClasses, onClassesChange, validateForm])
 
-  const handleDeleteClass = (classId: string) => {
+  const handleDeleteClass = useCallback((classId: string) => {
     onClassesChange(privateClasses.filter((cls) => cls.id !== classId))
-  }
+  }, [privateClasses, onClassesChange])
 
-  const openEditDialog = (privateClass: PrivateClass) => {
+  const openEditDialog = useCallback((privateClass: PrivateClass) => {
     setEditingClass(privateClass)
-    setFormData({
+    setEditFormData({
       name: privateClass.name,
       description: privateClass.description,
       duration: privateClass.duration,
@@ -154,187 +489,29 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       isActive: privateClass.isActive,
       isPrivateClass: true, // Default to private for now
     })
-    setErrors({}) // Clear errors when opening edit dialog
-  }
+    setEditErrors({}) // Clear errors when opening edit dialog
+    setIsEditDialogOpen(true)
+  }, [])
 
-  const resetForm = () => {
-    setFormData({
-      name: { th: "", en: "" },
-      description: { th: "", en: "" },
-      duration: 60,
-      price: "1000",
-      maxStudents: 1,
-      isActive: true,
-      isPrivateClass: true,
-    })
-    setErrors({}) // Clear errors when resetting form
-  }
-
-  const closeEditDialog = () => {
+  const closeEditDialog = useCallback(() => {
     setEditingClass(null)
-    resetForm()
-  }
+    setIsEditDialogOpen(false)
+    setEditFormData({ ...defaultFormData })
+    setEditErrors({})
+  }, [])
 
-  const formatPrice = (price: number, currency: string) => {
+  const formatPrice = useCallback((price: number, currency: string) => {
     return `${price.toLocaleString()} ${currency}`
-  }
+  }, [])
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = useCallback((minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     if (hours > 0) {
       return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
     }
     return `${mins}m`
-  }
-
-  const ClassFormContent = () => (
-    <div className="space-y-4">
-      {/* Thai Information */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center">🇹🇭 ข้อมูลภาษาไทย</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="classNameTh">ชื่อคลาส (TH) *</Label>
-            <Input
-              id="classNameTh"
-              value={formData.name.th}
-              onChange={(e) => setFormData({ ...formData, name: { ...formData.name, th: e.target.value } })}
-              placeholder="เช่น การฝึกมวยไทยแบบ 1 ต่อ 1"
-              className={errors.nameTh ? "border-red-500" : ""}
-            />
-            {errors.nameTh && <p className="text-sm text-red-500 mt-1">{errors.nameTh}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="classDescriptionTh">คำอธิบาย (TH) *</Label>
-            <Textarea
-              id="classDescriptionTh"
-              value={formData.description.th}
-              onChange={(e) =>
-                setFormData({ ...formData, description: { ...formData.description, th: e.target.value } })
-              }
-              placeholder="อธิบายสิ่งที่คลาสนี้รวม..."
-              rows={3}
-              className={`resize-none ${errors.descriptionTh ? "border-red-500" : ""}`}
-            />
-            {errors.descriptionTh && <p className="text-sm text-red-500 mt-1">{errors.descriptionTh}</p>}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* English Information */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center">🇬🇧 ข้อมูลภาษาอังกฤษ</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="classNameEn">Class Name (EN) *</Label>
-            <Input
-              id="classNameEn"
-              value={formData.name.en}
-              onChange={(e) => setFormData({ ...formData, name: { ...formData.name, en: e.target.value } })}
-              placeholder="e.g. One-on-One Muay Thai Training"
-              className={errors.nameEn ? "border-red-500" : ""}
-            />
-            {errors.nameEn && <p className="text-sm text-red-500 mt-1">{errors.nameEn}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="classDescriptionEn">Description (EN) *</Label>
-            <Textarea
-              id="classDescriptionEn"
-              value={formData.description.en}
-              onChange={(e) =>
-                setFormData({ ...formData, description: { ...formData.description, en: e.target.value } })
-              }
-              placeholder="Describe what this class includes..."
-              rows={3}
-              className={`resize-none ${errors.descriptionEn ? "border-red-500" : ""}`}
-            />
-            {errors.descriptionEn && <p className="text-sm text-red-500 mt-1">{errors.descriptionEn}</p>}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      {/* Class Details */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="class-type">ประเภทคลาส</Label>
-          <Select
-            value={formData.isPrivateClass ? "private" : "group"}
-            onValueChange={(value) => setFormData({ ...formData, isPrivateClass: value === "private" })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="เลือกประเภทคลาส" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="private">เรียนส่วนตัว</SelectItem>
-              <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="duration">ระยะเวลา (นาที)</Label>
-            <Input
-              id="duration"
-              type="number"
-              min="15"
-              max="180"
-              value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: Number.parseInt(e.target.value) || 60 })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="max-students">นักเรียนสูงสุด</Label>
-            <Input
-              id="max-students"
-              type="number"
-              min="1"
-              max="10"
-              value={formData.maxStudents}
-              onChange={(e) => setFormData({ ...formData, maxStudents: Number.parseInt(e.target.value) || 1 })}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="price">ราคา (บาท) *</Label>
-          <div className="relative">
-            <Input
-              id="price"
-              type="text"
-              value={formData.price}
-              onChange={handlePriceChange}
-              placeholder="1000"
-              className={`pr-12 ${errors.price ? "border-red-500" : ""}`}
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">฿</span>
-            </div>
-          </div>
-          {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="is-active"
-            checked={formData.isActive}
-            onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-          />
-          <Label htmlFor="is-active">ใช้งาน (พร้อมสำหรับการจอง)</Label>
-        </div>
-      </div>
-    </div>
-  )
+  }, [])
 
   return (
     <Card>
@@ -345,7 +522,13 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
             <p className="text-sm text-muted-foreground">จัดการเซสชันฝึกส่วนตัวและอัตราค่าบริการของคุณ</p>
           </div>
           {!disabled && (
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+              setIsAddDialogOpen(open)
+              if (!open) {
+                setAddFormData({ ...defaultFormData })
+                setAddErrors({})
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="mr-2 h-4 w-4" />
@@ -356,17 +539,21 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                 <DialogHeader>
                   <DialogTitle>เพิ่มคลาสส่วนตัว</DialogTitle>
                 </DialogHeader>
-                <ClassFormContent />
+                <AddForm 
+                  formData={addFormData}
+                  setFormData={setAddFormData}
+                  errors={addErrors}
+                  onPriceChange={handleAddPriceChange}
+                />
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => {
                     setIsAddDialogOpen(false)
-                    resetForm()
+                    setAddFormData({ ...defaultFormData })
+                    setAddErrors({})
                   }}>
                     ยกเลิก
                   </Button>
-                  <Button
-                    onClick={handleAddClass}
-                  >
+                  <Button onClick={handleAddClass}>
                     เพิ่มคลาส
                   </Button>
                 </div>
@@ -416,7 +603,11 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
-                      <Dialog>
+                      <Dialog open={isEditDialogOpen && editingClass?.id === privateClass.id} onOpenChange={(open) => {
+                        if (!open) {
+                          closeEditDialog()
+                        }
+                      }}>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(privateClass)}>
                             <Edit className="h-4 w-4" />
@@ -426,7 +617,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                           <DialogHeader>
                             <DialogTitle>แก้ไขคลาสส่วนตัว</DialogTitle>
                           </DialogHeader>
-                          <ClassFormContent />
+                          <EditForm 
+                            formData={editFormData}
+                            setFormData={setEditFormData}
+                            errors={editErrors}
+                            onPriceChange={handleEditPriceChange}
+                          />
                           <div className="flex justify-end space-x-2">
                             <Button type="button" variant="outline" onClick={closeEditDialog}>
                               ยกเลิก
