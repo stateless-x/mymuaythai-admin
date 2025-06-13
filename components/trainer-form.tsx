@@ -15,20 +15,36 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Trainer } from "@/lib/types"
+import type { Gym } from "@/lib/types"
 import { PrivateClassManager } from "@/components/private-class-manager"
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector"
 
-interface TrainerFormProps {
-  trainer?: any
-  gyms?: any[]
-  onSubmit: (trainer: any) => void
+export interface TrainerFormData {
+  id?: string
+  firstName: { th: string; en: string }
+  lastName: { th: string; en: string }
+  email: string
+  phone: string
+  status: "active" | "inactive"
+  assignedGym: string
+  tags: string[]
+  isFreelancer: boolean
+  bio: { th: string; en: string }
+  lineId: string
+  yearsOfExperience: number
+  privateClasses: any[]
+  joinedDate?: string
+}
+
+export interface TrainerFormProps {
+  trainer?: TrainerFormData
+  gyms?: Gym[]
+  onSubmit: (trainer: TrainerFormData) => void
   onCancel: () => void
 }
 
 export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerFormProps) {
-  // Initialize form data using the same structure as the trainers page
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TrainerFormData>({
     firstName: {
       th: trainer?.firstName?.th || "",
       en: trainer?.firstName?.en || "",
@@ -99,7 +115,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
     }
 
     if (formData.yearsOfExperience < 0 || formData.yearsOfExperience > 99) {
-      newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 60 ปี"
+      newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
     }
 
     if (!formData.isFreelancer && !formData.assignedGym) {
