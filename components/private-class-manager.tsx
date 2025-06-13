@@ -24,6 +24,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { Plus, Edit, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import type { PrivateClass } from "@/lib/types"
 
 interface PrivateClassManagerProps {
@@ -57,6 +58,9 @@ const defaultFormData: ClassFormData = {
   isActive: true,
   isPrivateClass: true,
 }
+
+// Constants
+const MAX_CLASSES_LIMIT = 3
 
 // Helper function to validate number input
 const validateNumberInput = (value: string, min: number, max: number): boolean => {
@@ -407,6 +411,18 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
   const [addErrors, setAddErrors] = useState<Record<string, string>>({})
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
+  // Check if maximum classes limit is reached
+  const isMaxClassesReached = privateClasses.length >= MAX_CLASSES_LIMIT
+
+  // Handle add button click with limit check
+  const handleAddButtonClick = useCallback(() => {
+    if (isMaxClassesReached) {
+      toast.error(`ไม่สามารถเพิ่มคลาสได้อีก จำนวนคลาสสูงสุดคือ ${MAX_CLASSES_LIMIT} คลาส`)
+      return
+    }
+    setIsAddDialogOpen(true)
+  }, [isMaxClassesReached])
+
   const validateForm = useCallback((formData: ClassFormData, setErrors: (errors: Record<string, string>) => void) => {
     const newErrors: Record<string, string> = {}
 
@@ -505,6 +521,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
   }, [])
 
   const handleAddClass = useCallback(() => {
+    // Double-check the limit before adding
+    if (privateClasses.length >= MAX_CLASSES_LIMIT) {
+      toast.error(`ไม่สามารถเพิ่มคลาสได้อีก จำนวนคลาสสูงสุดคือ ${MAX_CLASSES_LIMIT} คลาส`)
+      return
+    }
+
     if (!validateForm(addFormData, setAddErrors)) return
 
     const newClass: PrivateClass = {
@@ -523,6 +545,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     setAddFormData({ ...defaultFormData })
     setAddErrors({})
     setIsAddDialogOpen(false)
+    toast.success("เพิ่มคลาสสำเร็จ")
   }, [addFormData, privateClasses, onClassesChange, validateForm])
 
   const handleEditClass = useCallback(() => {
@@ -547,10 +570,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     setIsEditDialogOpen(false)
     setEditFormData({ ...defaultFormData })
     setEditErrors({})
+    toast.success("แก้ไขคลาสสำเร็จ")
   }, [editingClass, editFormData, privateClasses, onClassesChange, validateForm])
 
   const handleDeleteClass = useCallback((classId: string) => {
     onClassesChange(privateClasses.filter((cls) => cls.id !== classId))
+    toast.success("ลบคลาสสำเร็จ")
   }, [privateClasses, onClassesChange])
 
   const openEditDialog = useCallback((privateClass: PrivateClass) => {
@@ -598,7 +623,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg">คลาสส่วนตัวและราคา</CardTitle>
-            <p className="text-sm text-muted-foreground">จัดการเซสชันฝึกส่วนตัวและอัตราค่าบริการของคุณ</p>
+            <p className="text-sm text-muted-foreground">
+              จัดการเซสชันฝึกส่วนตัวและอัตราค่าบริการของคุณ ({privateClasses.length}/{MAX_CLASSES_LIMIT} คลาส)
+            </p>
           </div>
           {!disabled && (
             <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
@@ -609,7 +636,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
               }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button 
+                  size="sm" 
+                  onClick={handleAddButtonClick}
+                  disabled={isMaxClassesReached}
+                  className={isMaxClassesReached ? "opacity-50 cursor-not-allowed" : ""}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   เพิ่มคลาส
                 </Button>
@@ -647,7 +679,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
         {privateClasses.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">ยังไม่มีคลาสส่วนตัว</p>
-            <p className="text-sm text-muted-foreground mt-1">เพิ่มคลาสแรกของคุณเพื่อเริ่มต้น</p>
+            <p className="text-sm text-muted-foreground mt-1">เพิ่มคลาสแรกของคุณเพื่อเริ่มต้น (สูงสุด {MAX_CLASSES_LIMIT} คลาส)</p>
           </div>
         ) : (
           <Table>
