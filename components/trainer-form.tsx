@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Gym } from "@/lib/types"
 import { PrivateClassManager } from "@/components/private-class-manager"
@@ -369,18 +370,6 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     {errors.yearsOfExperience && <p className="text-sm text-red-500 mt-1">{errors.yearsOfExperience}</p>}
                   </div>
                 </div>
-
-                <div className="flex items-center space-x-2 pt-1">
-                  <Switch
-                    id="status"
-                    checked={formData.status === "active"}
-                    onCheckedChange={(checked) => setFormData({ ...formData, status: checked ? "active" : "inactive" })}
-                    disabled={isSubmitting}
-                  />
-                  <Label htmlFor="status" className="text-sm">
-                    สถานะเปิดใช้งาน
-                  </Label>
-                </div>
               </CardContent>
             </Card>
 
@@ -511,13 +500,41 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
               disabled={isSubmitting}
             />
 
+            {/* Account Status Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" />
+                  สถานะบัญชี
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Alert>
+                  <AlertDescription>
+                    <span className="text-red-500"><strong>คำเตือน: </strong>การปิดใช้งานบัญชีจะทำให้ครูมวยนี้ไม่ปรากฏในระบบสำหรับผู้ใช้ทั่วไป</span>
+                  </AlertDescription>
+                </Alert>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch
+                    id="status"
+                    checked={formData.status === "active"}
+                    onCheckedChange={(checked) => setFormData({ ...formData, status: checked ? "active" : "inactive" })}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="status" className="text-sm font-medium">
+                    เปิดใช้งานบัญชี
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Form Actions */}
             <div className="flex justify-end space-x-2 pt-2 pb-4">
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                 ยกเลิก
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "กำลังบันทึก..." : trainer ? "อัปเดต" : "สร้าง"} ครูมวย
+                {isSubmitting ? "กำลังบันทึก..." : trainer ? "อัพเดท" : "สร้าง"}
               </Button>
             </div>
           </form>

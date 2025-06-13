@@ -706,7 +706,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{getClassTypeDisplay(privateClass.isPrivateClass)}</Badge>
+                    <Badge 
+                      variant={privateClass.isPrivateClass !== false ? "default" : "secondary"}
+                      className={privateClass.isPrivateClass !== false ? "bg-blue-500 hover:bg-blue-600" : "bg-green-500 hover:bg-green-600 text-white"}
+                    >
+                      {getClassTypeDisplay(privateClass.isPrivateClass)}
+                    </Badge>
                   </TableCell>
                   <TableCell>{formatDuration(privateClass.duration)}</TableCell>
                   <TableCell>{privateClass.maxStudents} คน</TableCell>
