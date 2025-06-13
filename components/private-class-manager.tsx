@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,10 +42,10 @@ interface ClassFormData {
     en: string
   }
   duration: number
-  price: number
-  currency: string
+  price: string // Changed to string for better input handling
   maxStudents: number
   isActive: boolean
+  isPrivateClass: boolean // Add private class type
 }
 
 export function PrivateClassManager({ privateClasses, onClassesChange, disabled = false }: PrivateClassManagerProps) {
@@ -54,18 +55,60 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     name: { th: "", en: "" },
     description: { th: "", en: "" },
     duration: 60,
-    price: 1000,
-    currency: "THB",
+    price: "1000",
     maxStudents: 1,
     isActive: true,
+    isPrivateClass: true,
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.name.th.trim()) {
+      newErrors.nameTh = "จำเป็นต้องระบุชื่อคลาสภาษาไทย"
+    }
+
+    if (!formData.name.en.trim()) {
+      newErrors.nameEn = "จำเป็นต้องระบุชื่อคลาสภาษาอังกฤษ"
+    }
+
+    if (!formData.description.th.trim()) {
+      newErrors.descriptionTh = "จำเป็นต้องระบุคำอธิบายภาษาไทย"
+    }
+
+    if (!formData.description.en.trim()) {
+      newErrors.descriptionEn = "จำเป็นต้องระบุคำอธิบายภาษาอังกฤษ"
+    }
+
+    if (!formData.price.trim() || isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
+      newErrors.price = "จำเป็นต้องระบุราคาที่ถูกต้อง"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    // Only allow numbers, no decimals
+    if (value === '' || /^\d+$/.test(value)) {
+      setFormData({ ...formData, price: value })
+    }
+  }
 
   const handleAddClass = () => {
-    if (!formData.name.th.trim() || !formData.description.th.trim()) return
+    if (!validateForm()) return
 
     const newClass: PrivateClass = {
       id: Date.now().toString(),
-      ...formData,
+      name: formData.name,
+      description: formData.description,
+      duration: formData.duration,
+      price: Number(formData.price),
+      currency: "THB",
+      maxStudents: formData.maxStudents,
+      isActive: formData.isActive,
       createdDate: new Date().toISOString().split("T")[0],
     }
 
@@ -75,13 +118,18 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
   }
 
   const handleEditClass = () => {
-    if (!editingClass || !formData.name.th.trim() || !formData.description.th.trim()) return
+    if (!editingClass || !validateForm()) return
 
     const updatedClasses = privateClasses.map((cls) =>
       cls.id === editingClass.id
         ? {
             ...cls,
-            ...formData,
+            name: formData.name,
+            description: formData.description,
+            duration: formData.duration,
+            price: Number(formData.price),
+            maxStudents: formData.maxStudents,
+            isActive: formData.isActive,
           }
         : cls,
     )
@@ -101,11 +149,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       name: privateClass.name,
       description: privateClass.description,
       duration: privateClass.duration,
-      price: privateClass.price,
-      currency: privateClass.currency,
+      price: privateClass.price.toString(),
       maxStudents: privateClass.maxStudents,
       isActive: privateClass.isActive,
+      isPrivateClass: true, // Default to private for now
     })
+    setErrors({}) // Clear errors when opening edit dialog
   }
 
   const resetForm = () => {
@@ -113,11 +162,12 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       name: { th: "", en: "" },
       description: { th: "", en: "" },
       duration: 60,
-      price: 1000,
-      currency: "THB",
+      price: "1000",
       maxStudents: 1,
       isActive: true,
+      isPrivateClass: true,
     })
+    setErrors({}) // Clear errors when resetting form
   }
 
   const closeEditDialog = () => {
@@ -153,7 +203,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
               value={formData.name.th}
               onChange={(e) => setFormData({ ...formData, name: { ...formData.name, th: e.target.value } })}
               placeholder="เช่น การฝึกมวยไทยแบบ 1 ต่อ 1"
+              className={errors.nameTh ? "border-red-500" : ""}
             />
+            {errors.nameTh && <p className="text-sm text-red-500 mt-1">{errors.nameTh}</p>}
           </div>
 
           <div className="space-y-2">
@@ -166,7 +218,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
               }
               placeholder="อธิบายสิ่งที่คลาสนี้รวม..."
               rows={3}
+              className={`resize-none ${errors.descriptionTh ? "border-red-500" : ""}`}
             />
+            {errors.descriptionTh && <p className="text-sm text-red-500 mt-1">{errors.descriptionTh}</p>}
           </div>
         </CardContent>
       </Card>
@@ -178,17 +232,19 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="classNameEn">Class Name (EN)</Label>
+            <Label htmlFor="classNameEn">Class Name (EN) *</Label>
             <Input
               id="classNameEn"
               value={formData.name.en}
               onChange={(e) => setFormData({ ...formData, name: { ...formData.name, en: e.target.value } })}
               placeholder="e.g. One-on-One Muay Thai Training"
+              className={errors.nameEn ? "border-red-500" : ""}
             />
+            {errors.nameEn && <p className="text-sm text-red-500 mt-1">{errors.nameEn}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="classDescriptionEn">Description (EN)</Label>
+            <Label htmlFor="classDescriptionEn">Description (EN) *</Label>
             <Textarea
               id="classDescriptionEn"
               value={formData.description.en}
@@ -197,7 +253,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
               }
               placeholder="Describe what this class includes..."
               rows={3}
+              className={`resize-none ${errors.descriptionEn ? "border-red-500" : ""}`}
             />
+            {errors.descriptionEn && <p className="text-sm text-red-500 mt-1">{errors.descriptionEn}</p>}
           </div>
         </CardContent>
       </Card>
@@ -206,6 +264,22 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
 
       {/* Class Details */}
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="class-type">ประเภทคลาส</Label>
+          <Select
+            value={formData.isPrivateClass ? "private" : "group"}
+            onValueChange={(value) => setFormData({ ...formData, isPrivateClass: value === "private" })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="เลือกประเภทคลาส" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="private">เรียนส่วนตัว</SelectItem>
+              <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="duration">ระยะเวลา (นาที)</Label>
@@ -232,27 +306,22 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="price">ราคา</Label>
+        <div className="space-y-2">
+          <Label htmlFor="price">ราคา (บาท) *</Label>
+          <div className="relative">
             <Input
               id="price"
-              type="number"
-              min="0"
+              type="text"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: Number.parseInt(e.target.value) || 0 })}
+              onChange={handlePriceChange}
+              placeholder="1000"
+              className={`pr-12 ${errors.price ? "border-red-500" : ""}`}
             />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">฿</span>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="currency">สกุลเงิน</Label>
-            <Input
-              id="currency"
-              value={formData.currency}
-              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              placeholder="THB"
-            />
-          </div>
+          {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
         </div>
 
         <div className="flex items-center space-x-2">
@@ -289,12 +358,14 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                 </DialogHeader>
                 <ClassFormContent />
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setIsAddDialogOpen(false)
+                    resetForm()
+                  }}>
                     ยกเลิก
                   </Button>
                   <Button
                     onClick={handleAddClass}
-                    disabled={!formData.name.th.trim() || !formData.description.th.trim()}
                   >
                     เพิ่มคลาส
                   </Button>
@@ -307,107 +378,93 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       <CardContent>
         {privateClasses.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">ยังไม่ได้กำหนดคลาสส่วนตัว</p>
-            {!disabled && <p className="text-sm text-muted-foreground mt-2">เพิ่มคลาสส่วนตัวแรกของคุณเพื่อเริ่มเสนอเซสชัน</p>}
+            <p className="text-muted-foreground">ยังไม่มีคลาสส่วนตัว</p>
+            <p className="text-sm text-muted-foreground mt-1">เพิ่มคลาสแรกของคุณเพื่อเริ่มต้น</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Classes Table */}
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ชื่อคลาส</TableHead>
-                    <TableHead>ระยะเวลา</TableHead>
-                    <TableHead>ราคา</TableHead>
-                    <TableHead>นักเรียนสูงสุด</TableHead>
-                    <TableHead>สถานะ</TableHead>
-                    {!disabled && <TableHead className="text-right">การดำเนินการ</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {privateClasses.map((privateClass) => (
-                    <TableRow key={privateClass.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{privateClass.name.th}</p>
-                          {privateClass.name.en && (
-                            <p className="text-sm text-muted-foreground">{privateClass.name.en}</p>
-                          )}
-                          <p className="text-sm text-muted-foreground truncate max-w-xs mt-1">
-                            {privateClass.description.th}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDuration(privateClass.duration)}</TableCell>
-                      <TableCell>{formatPrice(privateClass.price, privateClass.currency)}</TableCell>
-                      <TableCell>{privateClass.maxStudents}</TableCell>
-                      <TableCell>
-                        <Badge variant={privateClass.isActive ? "default" : "secondary"}>
-                          {privateClass.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
-                        </Badge>
-                      </TableCell>
-                      {!disabled && (
-                        <TableCell className="text-right">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ชื่อคลาส</TableHead>
+                <TableHead>ประเภท</TableHead>
+                <TableHead>ระยะเวลา</TableHead>
+                <TableHead>นักเรียนสูงสุด</TableHead>
+                <TableHead>ราคา</TableHead>
+                <TableHead>สถานะ</TableHead>
+                <TableHead className="text-right">การจัดการ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {privateClasses.map((privateClass) => (
+                <TableRow key={privateClass.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{privateClass.name.th}</div>
+                      <div className="text-sm text-muted-foreground">{privateClass.name.en}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">เรียนส่วนตัว</Badge>
+                  </TableCell>
+                  <TableCell>{formatDuration(privateClass.duration)}</TableCell>
+                  <TableCell>{privateClass.maxStudents} คน</TableCell>
+                  <TableCell>{formatPrice(privateClass.price, privateClass.currency)}</TableCell>
+                  <TableCell>
+                    <Badge variant={privateClass.isActive ? "default" : "secondary"}>
+                      {privateClass.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(privateClass)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>แก้ไขคลาสส่วนตัว</DialogTitle>
+                          </DialogHeader>
+                          <ClassFormContent />
                           <div className="flex justify-end space-x-2">
-                            <Dialog
-                              open={editingClass?.id === privateClass.id}
-                              onOpenChange={(open) => !open && closeEditDialog()}
-                            >
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" onClick={() => openEditDialog(privateClass)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                                <DialogHeader>
-                                  <DialogTitle>แก้ไขคลาสส่วนตัว</DialogTitle>
-                                </DialogHeader>
-                                <ClassFormContent />
-                                <div className="flex justify-end space-x-2">
-                                  <Button type="button" variant="outline" onClick={closeEditDialog}>
-                                    ยกเลิก
-                                  </Button>
-                                  <Button
-                                    onClick={handleEditClass}
-                                    disabled={!formData.name.th.trim() || !formData.description.th.trim()}
-                                  >
-                                    อัปเดตคลาส
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบคลาสส่วนตัว "{privateClass.name.th}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteClass(privateClass.id)}>
-                                    ลบคลาส
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <Button type="button" variant="outline" onClick={closeEditDialog}>
+                              ยกเลิก
+                            </Button>
+                            <Button onClick={handleEditClass}>
+                              บันทึกการแก้ไข
+                            </Button>
                           </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              การดำเนินการนี้ไม่สามารถยกเลิกได้ คลาสนี้จะถูกลบออกจากรายการอย่างถาวร
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteClass(privateClass.id)}>
+                              ลบ
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

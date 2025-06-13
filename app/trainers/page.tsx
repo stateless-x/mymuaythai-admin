@@ -214,24 +214,12 @@ export default function TrainersPage() {
 
   // Transform form data to backend API structure
   const transformFormDataToApi = (formData: TrainerFormData) => {
-    console.log("=== transformFormDataToApi called ===")
-    console.log("Received formData:", formData)
-    console.log("isFreelancer:", formData.isFreelancer)
-    console.log("assignedGym:", formData.assignedGym)
-    console.log("assignedGym type:", typeof formData.assignedGym)
-    console.log("assignedGym truthy:", !!formData.assignedGym)
-    console.log("privateClasses:", formData.privateClasses)
-    
     // Validation: Non-freelance trainers must have a gym
     if (!formData.isFreelancer && !formData.assignedGym) {
-      console.log("=== VALIDATION FAILED ===")
-      console.log("isFreelancer:", formData.isFreelancer)
-      console.log("assignedGym:", formData.assignedGym)
       throw new Error("ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม")
     }
 
     const transformedClasses = transformPrivateClassesToBackend(formData.privateClasses || [])
-    console.log("Transformed classes:", transformedClasses)
 
     const apiData = {
       first_name_th: formData.firstName.th,
@@ -251,7 +239,6 @@ export default function TrainersPage() {
       classes: transformedClasses,
     }
     
-    console.log("Transformed API data:", apiData)
     return apiData
   }
 
@@ -311,10 +298,7 @@ export default function TrainersPage() {
 
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
-      console.log("Adding trainer with form data:", formData)
       const apiData = transformFormDataToApi(formData)
-      console.log("Transformed API data:", apiData)
-      
       const result = await trainersApi.create(apiData)
       console.log("Trainer created successfully:", result)
       
@@ -332,14 +316,7 @@ export default function TrainersPage() {
   const handleEditTrainer = async (formData: TrainerFormData) => {
     if (editingTrainer) {
       try {
-        console.log("=== EDITING TRAINER ===")
-        console.log("Original editing trainer:", editingTrainer)
-        console.log("Form data received:", formData)
-        console.log("privateClasses in form data:", formData.privateClasses)
-        
         const apiData = transformFormDataToApi(formData)
-        console.log("Final transformed API data:", apiData)
-        console.log("Classes being sent to API:", apiData.classes)
         
         const result = await trainersApi.update(editingTrainer.id, apiData)
         console.log("Trainer updated successfully:", result)
@@ -348,12 +325,6 @@ export default function TrainersPage() {
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
         console.error("Error updating trainer:", err)
-        console.error("Error details:", {
-          message: err instanceof Error ? err.message : "Unknown error",
-          stack: err instanceof Error ? err.stack : undefined,
-          editingTrainerId: editingTrainer.id,
-          formData: formData
-        })
         const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
         toast.error(errorMessage)
       }

@@ -146,6 +146,13 @@ export const getValidationMessage = (fieldName: string, validationType: 'require
       'description_th': 'จำเป็นต้องระบุคำอธิบายภาษาไทย',
       'description_en': 'จำเป็นต้องระบุคำอธิบายภาษาอังกฤษ',
       'province_id': 'จำเป็นต้องเลือกจังหวัด',
+      // Trainer form specific fields
+      'firstName.th': 'จำเป็นต้องระบุชื่อภาษาไทย',
+      'firstName.en': 'จำเป็นต้องระบุชื่อภาษาอังกฤษ',
+      'lastName.th': 'จำเป็นต้องระบุนามสกุลภาษาไทย',
+      'lastName.en': 'จำเป็นต้องระบุนามสกุลภาษาอังกฤษ',
+      'bio.th': 'จำเป็นต้องระบุประวัติภาษาไทย',
+      'bio.en': 'จำเป็นต้องระบุประวัติภาษาอังกฤษ',
       'default': 'กรุณากรอกข้อมูลในช่องนี้'
     },
     email: 'กรุณาใส่อีเมลที่ถูกต้อง',

@@ -18,6 +18,12 @@ import { cn } from "@/lib/utils"
 import type { Gym } from "@/lib/types"
 import { PrivateClassManager } from "@/components/private-class-manager"
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector"
+import { 
+  validateFormData, 
+  formatPhoneInput, 
+  cleanPhoneForAPI,
+  validateEmail 
+} from "@/lib/utils/form-helpers"
 
 // Helper function to transform backend classes to frontend format
 function transformBackendClassesToPrivateClasses(backendClasses: any[]): any[] {
@@ -100,139 +106,43 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
   const [isGymPopoverOpen, setIsGymPopoverOpen] = useState(false)
 
   const validateForm = () => {
-    console.log("=== validateForm called ===")
-    console.log("Form data:", formData)
-    console.log("isFreelancer:", formData.isFreelancer)
-    console.log("assignedGym:", formData.assignedGym)
-    console.log("assignedGym type:", typeof formData.assignedGym)
-    console.log("assignedGym length:", formData.assignedGym?.length)
+    const requiredFields = [
+      'firstName.th', 'lastName.th', 'firstName.en', 'lastName.en',
+      'phone', 'bio.th', 'bio.en'
+    ]
     
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.firstName.th.trim()) {
-      newErrors.firstNameTh = "จำเป็นต้องระบุชื่อภาษาไทย"
+    // Create a flat version of formData for validation
+    const flatFormData = {
+      'firstName.th': formData.firstName.th,
+      'lastName.th': formData.lastName.th,
+      'firstName.en': formData.firstName.en,
+      'lastName.en': formData.lastName.en,
+      'phone': formData.phone,
+      'bio.th': formData.bio.th,
+      'bio.en': formData.bio.en,
+      'email': formData.email,
+      'yearsOfExperience': formData.yearsOfExperience,
+      'assignedGym': formData.assignedGym,
+      'isFreelancer': formData.isFreelancer
     }
 
-    if (!formData.lastName.th.trim()) {
-      newErrors.lastNameTh = "จำเป็นต้องระบุนามสกุลภาษาไทย"
-    }
+    const formErrors = validateFormData(flatFormData, requiredFields)
 
-    if (!formData.firstName.en.trim()) {
-      newErrors.firstNameEn = "First name in English is required"
-    }
-
-    if (!formData.lastName.en.trim()) {
-      newErrors.lastNameEn = "Last name in English is required"
-    }
-
-    if (!formData.bio.th.trim()) {
-      newErrors.bioTh = "จำเป็นต้องระบุประวัติภาษาไทย"
-    }
-
-    if (!formData.bio.en.trim()) {
-      newErrors.bioEn = "Description in English is required"
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "จำเป็นต้องระบุเบอร์โทร"
-    }
-
-    if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "กรุณาใส่อีเมลที่ถูกต้อง"
+    // Add custom validation
+    if (formData.email && !validateEmail(formData.email)) {
+      formErrors.email = "กรุณาใส่อีเมลที่ถูกต้อง"
     }
 
     if (formData.yearsOfExperience < 0 || formData.yearsOfExperience > 99) {
-      newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
+      formErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
     }
 
     if (!formData.isFreelancer && !formData.assignedGym) {
-      newErrors.assignedGym = "ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม"
+      formErrors.assignedGym = "ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม"
     }
 
-    console.log("Validation errors:", newErrors)
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const validateField = (fieldName: string, value: any, currentFormData?: any) => {
-    const newErrors = { ...errors }
-    const currentData = currentFormData || formData
-
-    switch (fieldName) {
-      case 'firstNameTh':
-        if (!value.trim()) {
-          newErrors.firstNameTh = "จำเป็นต้องระบุชื่อภาษาไทย"
-        } else {
-          delete newErrors.firstNameTh
-        }
-        break
-      case 'lastNameTh':
-        if (!value.trim()) {
-          newErrors.lastNameTh = "จำเป็นต้องระบุนามสกุลภาษาไทย"
-        } else {
-          delete newErrors.lastNameTh
-        }
-        break
-      case 'firstNameEn':
-        if (!value.trim()) {
-          newErrors.firstNameEn = "First name in English is required"
-        } else {
-          delete newErrors.firstNameEn
-        }
-        break
-      case 'lastNameEn':
-        if (!value.trim()) {
-          newErrors.lastNameEn = "Last name in English is required"
-        } else {
-          delete newErrors.lastNameEn
-        }
-        break
-      case 'bioTh':
-        if (!value.trim()) {
-          newErrors.bioTh = "จำเป็นต้องระบุประวัติภาษาไทย"
-        } else {
-          delete newErrors.bioTh
-        }
-        break
-      case 'bioEn':
-        if (!value.trim()) {
-          newErrors.bioEn = "Description in English is required"
-        } else {
-          delete newErrors.bioEn
-        }
-        break
-      case 'phone':
-        if (!value.trim()) {
-          newErrors.phone = "จำเป็นต้องระบุเบอร์โทร"
-        } else {
-          delete newErrors.phone
-        }
-        break
-      case 'email':
-        if (value.trim() && !/\S+@\S+\.\S+/.test(value)) {
-          newErrors.email = "กรุณาใส่อีเมลที่ถูกต้อง"
-        } else {
-          delete newErrors.email
-        }
-        break
-      case 'yearsOfExperience':
-        const numValue = Number(value) || 0
-        if (numValue < 0 || numValue > 99) {
-          newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
-        } else {
-          delete newErrors.yearsOfExperience
-        }
-        break
-      case 'assignedGym':
-        if (!currentData.isFreelancer && !value) {
-          newErrors.assignedGym = "ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม"
-        } else {
-          delete newErrors.assignedGym
-        }
-        break
-    }
-
-    setErrors(newErrors)
+    setErrors(formErrors)
+    return Object.keys(formErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,10 +155,20 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
     setIsSubmitting(true)
 
     try {
-      await onSubmit(formData)
+      // Clean phone number before submission
+      const cleanedFormData = {
+        ...formData,
+        phone: cleanPhoneForAPI(formData.phone)
+      }
+      await onSubmit(cleanedFormData)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneInput(e.target.value)
+    setFormData({ ...formData, phone: formatted })
   }
 
   return (
@@ -273,12 +193,11 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                       onChange={(e) =>
                         setFormData({ ...formData, firstName: { ...formData.firstName, th: e.target.value } })
                       }
-                      onBlur={(e) => validateField('firstNameTh', e.target.value)}
                       placeholder="ชื่อภาษาไทย"
                       disabled={isSubmitting}
-                      className={`h-9 ${errors.firstNameTh ? "border-red-500" : ""}`}
+                      className={`h-9 ${errors['firstName.th'] ? "border-red-500" : ""}`}
                     />
-                    {errors.firstNameTh && <p className="text-sm text-red-500 mt-1">{errors.firstNameTh}</p>}
+                    {errors['firstName.th'] && <p className="text-sm text-red-500 mt-1">{errors['firstName.th']}</p>}
                   </div>
 
                   <div className="space-y-1">
@@ -291,12 +210,11 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                       onChange={(e) =>
                         setFormData({ ...formData, lastName: { ...formData.lastName, th: e.target.value } })
                       }
-                      onBlur={(e) => validateField('lastNameTh', e.target.value)}
                       placeholder="นามสกุลภาษาไทย"
                       disabled={isSubmitting}
-                      className={`h-9 ${errors.lastNameTh ? "border-red-500" : ""}`}
+                      className={`h-9 ${errors['lastName.th'] ? "border-red-500" : ""}`}
                     />
-                    {errors.lastNameTh && <p className="text-sm text-red-500 mt-1">{errors.lastNameTh}</p>}
+                    {errors['lastName.th'] && <p className="text-sm text-red-500 mt-1">{errors['lastName.th']}</p>}
                   </div>
                 </div>
 
@@ -308,13 +226,12 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     id="bioTh"
                     value={formData.bio.th}
                     onChange={(e) => setFormData({ ...formData, bio: { ...formData.bio, th: e.target.value } })}
-                    onBlur={(e) => validateField('bioTh', e.target.value)}
                     placeholder="บอกเราเกี่ยวกับประวัติ ความเชี่ยวชาญ และปรัชญาการฝึกของคุณ..."
                     rows={3}
                     disabled={isSubmitting}
-                    className={`resize-none ${errors.bioTh ? "border-red-500" : ""}`}
+                    className={`resize-none ${errors['bio.th'] ? "border-red-500" : ""}`}
                   />
-                  {errors.bioTh && <p className="text-sm text-red-500 mt-1">{errors.bioTh}</p>}
+                  {errors['bio.th'] && <p className="text-sm text-red-500 mt-1">{errors['bio.th']}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -336,12 +253,11 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                       onChange={(e) =>
                         setFormData({ ...formData, firstName: { ...formData.firstName, en: e.target.value } })
                       }
-                      onBlur={(e) => validateField('firstNameEn', e.target.value)}
                       placeholder="First name in English"
                       disabled={isSubmitting}
-                      className={`h-9 ${errors.firstNameEn ? "border-red-500" : ""}`}
+                      className={`h-9 ${errors['firstName.en'] ? "border-red-500" : ""}`}
                     />
-                    {errors.firstNameEn && <p className="text-sm text-red-500 mt-1">{errors.firstNameEn}</p>}
+                    {errors['firstName.en'] && <p className="text-sm text-red-500 mt-1">{errors['firstName.en']}</p>}
                   </div>
 
                   <div className="space-y-1">
@@ -354,12 +270,11 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                       onChange={(e) =>
                         setFormData({ ...formData, lastName: { ...formData.lastName, en: e.target.value } })
                       }
-                      onBlur={(e) => validateField('lastNameEn', e.target.value)}
                       placeholder="Last name in English"
                       disabled={isSubmitting}
-                      className={`h-9 ${errors.lastNameEn ? "border-red-500" : ""}`}
+                      className={`h-9 ${errors['lastName.en'] ? "border-red-500" : ""}`}
                     />
-                    {errors.lastNameEn && <p className="text-sm text-red-500 mt-1">{errors.lastNameEn}</p>}
+                    {errors['lastName.en'] && <p className="text-sm text-red-500 mt-1">{errors['lastName.en']}</p>}
                   </div>
                 </div>
 
@@ -371,13 +286,12 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     id="bioEn"
                     value={formData.bio.en}
                     onChange={(e) => setFormData({ ...formData, bio: { ...formData.bio, en: e.target.value } })}
-                    onBlur={(e) => validateField('bioEn', e.target.value)}
                     placeholder="Tell us about your background, expertise, and training philosophy..."
                     rows={3}
                     disabled={isSubmitting}
-                    className={`resize-none ${errors.bioEn ? "border-red-500" : ""}`}
+                    className={`resize-none ${errors['bio.en'] ? "border-red-500" : ""}`}
                   />
-                  {errors.bioEn && <p className="text-sm text-red-500 mt-1">{errors.bioEn}</p>}
+                  {errors['bio.en'] && <p className="text-sm text-red-500 mt-1">{errors['bio.en']}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -398,7 +312,6 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      onBlur={(e) => validateField('email', e.target.value)}
                       disabled={isSubmitting}
                       className={`h-9 ${errors.email ? "border-red-500" : ""}`}
                     />
@@ -412,8 +325,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     <Input
                       id="phone"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      onBlur={(e) => validateField('phone', e.target.value)}
+                      onChange={handlePhoneChange}
                       disabled={isSubmitting}
                       className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
                     />
@@ -450,7 +362,6 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                           setFormData({ ...formData, yearsOfExperience: Number(value) || 0 })
                         }
                       }}
-                      onBlur={(e) => validateField('yearsOfExperience', e.target.value)}
                       placeholder="0-99"
                       disabled={isSubmitting}
                       className={`h-9 ${errors.yearsOfExperience ? "border-red-500" : ""}`}
@@ -484,17 +395,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     id="freelancer"
                     checked={formData.isFreelancer}
                     onCheckedChange={(checked) => {
-                      const updatedFormData = { ...formData, isFreelancer: checked }
-                      setFormData(updatedFormData)
-                      // Clear gym assignment error when switching to freelancer
-                      if (checked) {
-                        const newErrors = { ...errors }
-                        delete newErrors.assignedGym
-                        setErrors(newErrors)
-                      } else {
-                        // Validate gym assignment when switching to staff
-                        validateField('assignedGym', formData.assignedGym, updatedFormData)
-                      }
+                      setFormData({ ...formData, isFreelancer: checked })
                     }}
                     disabled={isSubmitting}
                   />
@@ -528,10 +429,8 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                         >
                           <span className="truncate">
                             {(() => {
-                              console.log("Rendering gym selector - assignedGym:", formData.assignedGym)
                               if (formData.assignedGym) {
                                 const selectedGym = gyms.find((gym) => gym.id === formData.assignedGym)
-                                console.log("Found selected gym:", selectedGym)
                                 return selectedGym?.name_th || selectedGym?.name_en || "เลือกยิม"
                               }
                               return "เลือกยิม"
@@ -570,10 +469,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                                         key={gym.id}
                                         value={displayName}
                                         onSelect={() => {
-                                          console.log("Selecting gym:", gym.id, displayName)
-                                          const updatedFormData = { ...formData, assignedGym: gym.id }
-                                          setFormData(updatedFormData)
-                                          validateField('assignedGym', gym.id, updatedFormData)
+                                          setFormData({ ...formData, assignedGym: gym.id })
                                           setIsGymPopoverOpen(false)
                                         }}
                                       >
