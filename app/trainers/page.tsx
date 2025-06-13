@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
-import { TrainerForm } from "@/components/trainer-form"
+import { TrainerForm, type TrainerFormData } from "@/components/trainer-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -135,7 +135,7 @@ export default function TrainersPage() {
   }
 
   // Transform backend trainer data to form data structure
-  const transformTrainerToFormData = (trainer: Trainer) => {
+  const transformTrainerToFormData = (trainer: Trainer): TrainerFormData => {
     return {
       id: trainer.id,
       firstName: {
@@ -156,20 +156,69 @@ export default function TrainersPage() {
         th: trainer.bio_th || "",
         en: trainer.bio_en || "",
       },
-      yearsOfExperience: 0, // This field doesn't exist in backend yet
-      privateClasses: [], // This field doesn't exist in backend yet
+      lineId: trainer.line_id || "",
+      yearsOfExperience: trainer.exp_year || 0,
+      privateClasses: transformBackendClassesToPrivateClasses(trainer.classes || []),
       joinedDate: trainer.created_at,
     }
   }
 
+  // Helper function to transform backend classes to frontend format
+  function transformBackendClassesToPrivateClasses(backendClasses: any[]): any[] {
+    if (!backendClasses || !Array.isArray(backendClasses)) {
+      return []
+    }
+
+    return backendClasses
+      .filter(cls => cls.is_private_class) // Only include private classes for the form
+      .map(cls => ({
+        id: cls.id || `temp-${Date.now()}-${Math.random()}`,
+        name: {
+          th: cls.name_th || "",
+          en: cls.name_en || "",
+        },
+        description: {
+          th: cls.description_th || "",
+          en: cls.description_en || "",
+        },
+        duration: cls.duration_minutes || 60,
+        price: cls.price ? Math.round(cls.price / 100) : 1000, // Convert from satang to baht
+        currency: "THB",
+        maxStudents: cls.max_students || 1,
+        isActive: cls.is_active !== false,
+        createdDate: cls.created_at ? new Date(cls.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      }))
+  }
+
+  // Helper function to transform frontend PrivateClass back to backend format
+  function transformPrivateClassesToBackend(privateClasses: any[]): any[] {
+    if (!privateClasses || !Array.isArray(privateClasses)) {
+      return []
+    }
+
+    return privateClasses.map(cls => ({
+      id: cls.id && cls.id.startsWith('temp-') ? undefined : cls.id, // Remove temp IDs
+      name_th: cls.name?.th || "",
+      name_en: cls.name?.en || "",
+      description_th: cls.description?.th || "",
+      description_en: cls.description?.en || "",
+      duration_minutes: cls.duration || 60,
+      max_students: cls.maxStudents || 1,
+      price: cls.price ? cls.price * 100 : 100000, // Convert from baht to satang
+      is_active: cls.isActive !== false,
+      is_private_class: true,
+    }))
+  }
+
   // Transform form data to backend API structure
-  const transformFormDataToApi = (formData: any) => {
+  const transformFormDataToApi = (formData: TrainerFormData) => {
     console.log("=== transformFormDataToApi called ===")
     console.log("Received formData:", formData)
     console.log("isFreelancer:", formData.isFreelancer)
     console.log("assignedGym:", formData.assignedGym)
     console.log("assignedGym type:", typeof formData.assignedGym)
     console.log("assignedGym truthy:", !!formData.assignedGym)
+    console.log("privateClasses:", formData.privateClasses)
     
     // Validation: Non-freelance trainers must have a gym
     if (!formData.isFreelancer && !formData.assignedGym) {
@@ -179,12 +228,15 @@ export default function TrainersPage() {
       throw new Error("ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม")
     }
 
+    const transformedClasses = transformPrivateClassesToBackend(formData.privateClasses || [])
+    console.log("Transformed classes:", transformedClasses)
+
     const apiData = {
       first_name_th: formData.firstName.th,
       first_name_en: formData.firstName.en,
       last_name_th: formData.lastName.th,
       last_name_en: formData.lastName.en,
-      email: formData.email,
+      email: formData.email || "",
       phone: formData.phone,
       bio_th: formData.bio.th,
       bio_en: formData.bio.en,
@@ -192,7 +244,9 @@ export default function TrainersPage() {
       is_freelance: formData.isFreelancer,
       gym_id: formData.isFreelancer ? null : (formData.assignedGym || null),
       line_id: formData.lineId || "",
+      exp_year: formData.yearsOfExperience || 0,
       tags: formData.tags,
+      classes: transformedClasses,
     }
     
     console.log("Transformed API data:", apiData)
@@ -253,7 +307,7 @@ export default function TrainersPage() {
     }
   }
 
-  const handleAddTrainer = async (formData: any) => {
+  const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
       console.log("Adding trainer with form data:", formData)
       const apiData = transformFormDataToApi(formData)
@@ -273,7 +327,7 @@ export default function TrainersPage() {
     }
   }
 
-  const handleEditTrainer = async (formData: any) => {
+  const handleEditTrainer = async (formData: TrainerFormData) => {
     if (editingTrainer) {
       try {
         console.log("Editing trainer with form data:", formData)

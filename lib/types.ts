@@ -17,6 +17,7 @@ export interface Trainer {
   is_active: boolean
   is_freelance: boolean
   line_id?: string
+  exp_year?: number
   primaryGym?: {
     id: string
     name_th: string
@@ -29,6 +30,8 @@ export interface Trainer {
   }
   province_id?: number
   tags?: string[]
+  classes?: any[]
+  trainerClasses?: any[]
   created_at: string
   updated_at?: string
 }

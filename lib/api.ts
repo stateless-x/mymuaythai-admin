@@ -76,6 +76,7 @@ export const trainersApi = {
   getAll: async () => {
     const params = new URLSearchParams({
       includeInactive: "true",
+      includeClasses: "true",
       page: "1",
       pageSize: "20",
     })

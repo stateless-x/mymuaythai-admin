@@ -19,6 +19,33 @@ import type { Gym } from "@/lib/types"
 import { PrivateClassManager } from "@/components/private-class-manager"
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector"
 
+// Helper function to transform backend classes to frontend format
+function transformBackendClassesToPrivateClasses(backendClasses: any[]): any[] {
+  if (!backendClasses || !Array.isArray(backendClasses)) {
+    return []
+  }
+
+  return backendClasses
+    .filter(cls => cls.is_private_class) // Only include private classes for the form
+    .map(cls => ({
+      id: cls.id || `temp-${Date.now()}-${Math.random()}`,
+      name: {
+        th: cls.name_th || "",
+        en: cls.name_en || "",
+      },
+      description: {
+        th: cls.description_th || "",
+        en: cls.description_en || "",
+      },
+      duration: cls.duration_minutes || 60,
+      price: cls.price ? Math.round(cls.price / 100) : 1000, // Convert from satang to baht
+      currency: "THB",
+      maxStudents: cls.max_students || 1,
+      isActive: cls.is_active !== false,
+      createdDate: cls.created_at ? new Date(cls.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+    }))
+}
+
 export interface TrainerFormData {
   id?: string
   firstName: { th: string; en: string }
@@ -37,7 +64,7 @@ export interface TrainerFormData {
 }
 
 export interface TrainerFormProps {
-  trainer?: TrainerFormData
+  trainer?: TrainerFormData | any // Allow both form data and backend data structure
   gyms?: Gym[]
   onSubmit: (trainer: TrainerFormData) => void
   onCancel: () => void
@@ -46,26 +73,26 @@ export interface TrainerFormProps {
 export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerFormProps) {
   const [formData, setFormData] = useState<TrainerFormData>({
     firstName: {
-      th: trainer?.firstName?.th || "",
-      en: trainer?.firstName?.en || "",
+      th: trainer?.firstName?.th || trainer?.first_name_th || "",
+      en: trainer?.firstName?.en || trainer?.first_name_en || "",
     },
     lastName: {
-      th: trainer?.lastName?.th || "",
-      en: trainer?.lastName?.en || "",
+      th: trainer?.lastName?.th || trainer?.last_name_th || "",
+      en: trainer?.lastName?.en || trainer?.last_name_en || "",
     },
     email: trainer?.email || "",
     phone: trainer?.phone || "",
-    status: trainer?.status || "active",
-    assignedGym: trainer?.assignedGym || "",
+    status: trainer?.status || (trainer?.is_active !== undefined ? (trainer.is_active ? "active" : "inactive") : "active"),
+    assignedGym: trainer?.assignedGym || trainer?.primaryGym?.id || trainer?.gym_id || "",
     tags: trainer?.tags || [],
-    isFreelancer: trainer?.isFreelancer || false,
+    isFreelancer: trainer?.isFreelancer !== undefined ? trainer.isFreelancer : (trainer?.is_freelance || false),
     bio: {
-      th: trainer?.bio?.th || "",
-      en: trainer?.bio?.en || "",
+      th: trainer?.bio?.th || trainer?.bio_th || "",
+      en: trainer?.bio?.en || trainer?.bio_en || "",
     },
-    lineId: trainer?.lineId || "",
-    yearsOfExperience: trainer?.yearsOfExperience || 0,
-    privateClasses: trainer?.privateClasses || [],
+    lineId: trainer?.lineId || trainer?.line_id || "",
+    yearsOfExperience: trainer?.yearsOfExperience || trainer?.exp_year || 0,
+    privateClasses: trainer?.privateClasses || transformBackendClassesToPrivateClasses(trainer?.classes || []),
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -190,8 +217,8 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
         break
       case 'yearsOfExperience':
         const numValue = Number(value) || 0
-        if (numValue < 0 || numValue > 60) {
-          newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 60 ปี"
+        if (numValue < 0 || numValue > 99) {
+          newErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
         } else {
           delete newErrors.yearsOfExperience
         }
@@ -424,7 +451,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                         }
                       }}
                       onBlur={(e) => validateField('yearsOfExperience', e.target.value)}
-                      placeholder="0-60"
+                      placeholder="0-99"
                       disabled={isSubmitting}
                       className={`h-9 ${errors.yearsOfExperience ? "border-red-500" : ""}`}
                     />
