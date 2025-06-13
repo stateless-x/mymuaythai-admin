@@ -41,9 +41,9 @@ interface ClassFormData {
     th: string
     en: string
   }
-  duration: number
+  duration: string // Changed to string for better input handling
   price: string // Changed to string for better input handling
-  maxStudents: number
+  maxStudents: string // Changed to string for better input handling
   isActive: boolean
   isPrivateClass: boolean // Add private class type
 }
@@ -51,11 +51,18 @@ interface ClassFormData {
 const defaultFormData: ClassFormData = {
   name: { th: "", en: "" },
   description: { th: "", en: "" },
-  duration: 60,
+  duration: "60",
   price: "1000",
-  maxStudents: 1,
+  maxStudents: "1",
   isActive: true,
   isPrivateClass: true,
+}
+
+// Helper function to validate number input
+const validateNumberInput = (value: string, min: number, max: number): boolean => {
+  if (value === '') return true // Allow empty for user input
+  const num = Number(value)
+  return !isNaN(num) && num >= min && num <= max && /^\d+$/.test(value)
 }
 
 // Form component for adding classes - moved outside to prevent re-creation
@@ -64,9 +71,11 @@ interface AddFormProps {
   setFormData: React.Dispatch<React.SetStateAction<ClassFormData>>
   errors: Record<string, string>
   onPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onDurationChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onMaxStudentsChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
-function AddForm({ formData, setFormData, errors, onPriceChange }: AddFormProps) {
+function AddForm({ formData, setFormData, errors, onPriceChange, onDurationChange, onMaxStudentsChange }: AddFormProps) {
   return (
     <div className="space-y-4">
       {/* Thai Information */}
@@ -149,7 +158,7 @@ function AddForm({ formData, setFormData, errors, onPriceChange }: AddFormProps)
             value={formData.isPrivateClass ? "private" : "group"}
             onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
           >
-            <SelectTrigger>
+            <SelectTrigger className={errors.classType ? "border-red-500" : ""}>
               <SelectValue placeholder="เลือกประเภทคลาส" />
             </SelectTrigger>
             <SelectContent>
@@ -157,6 +166,7 @@ function AddForm({ formData, setFormData, errors, onPriceChange }: AddFormProps)
               <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
             </SelectContent>
           </Select>
+          {errors.classType && <p className="text-sm text-red-500 mt-1">{errors.classType}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -164,24 +174,28 @@ function AddForm({ formData, setFormData, errors, onPriceChange }: AddFormProps)
             <Label htmlFor="add-duration">ระยะเวลา (นาที)</Label>
             <Input
               id="add-duration"
-              type="number"
-              min="15"
-              max="180"
+              type="text"
               value={formData.duration}
-              onChange={(e) => setFormData(prev => ({ ...prev, duration: Number.parseInt(e.target.value) || 60 }))}
+              onChange={onDurationChange}
+              placeholder="60"
+              className={errors.duration ? "border-red-500" : ""}
             />
+            {errors.duration && <p className="text-sm text-red-500 mt-1">{errors.duration}</p>}
+            <p className="text-xs text-muted-foreground">ช่วง 0-1440 นาที</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="add-max-students">นักเรียนสูงสุด</Label>
             <Input
               id="add-max-students"
-              type="number"
-              min="1"
-              max="10"
+              type="text"
               value={formData.maxStudents}
-              onChange={(e) => setFormData(prev => ({ ...prev, maxStudents: Number.parseInt(e.target.value) || 1 }))}
+              onChange={onMaxStudentsChange}
+              placeholder="1"
+              className={errors.maxStudents ? "border-red-500" : ""}
             />
+            {errors.maxStudents && <p className="text-sm text-red-500 mt-1">{errors.maxStudents}</p>}
+            <p className="text-xs text-muted-foreground">ช่วง 1-99 คน</p>
           </div>
         </div>
 
@@ -222,9 +236,11 @@ interface EditFormProps {
   setFormData: React.Dispatch<React.SetStateAction<ClassFormData>>
   errors: Record<string, string>
   onPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onDurationChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onMaxStudentsChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
-function EditForm({ formData, setFormData, errors, onPriceChange }: EditFormProps) {
+function EditForm({ formData, setFormData, errors, onPriceChange, onDurationChange, onMaxStudentsChange }: EditFormProps) {
   return (
     <div className="space-y-4">
       {/* Thai Information */}
@@ -307,7 +323,7 @@ function EditForm({ formData, setFormData, errors, onPriceChange }: EditFormProp
             value={formData.isPrivateClass ? "private" : "group"}
             onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
           >
-            <SelectTrigger>
+            <SelectTrigger className={errors.classType ? "border-red-500" : ""}>
               <SelectValue placeholder="เลือกประเภทคลาส" />
             </SelectTrigger>
             <SelectContent>
@@ -315,6 +331,7 @@ function EditForm({ formData, setFormData, errors, onPriceChange }: EditFormProp
               <SelectItem value="group">เรียนแบบกลุ่ม</SelectItem>
             </SelectContent>
           </Select>
+          {errors.classType && <p className="text-sm text-red-500 mt-1">{errors.classType}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -322,24 +339,28 @@ function EditForm({ formData, setFormData, errors, onPriceChange }: EditFormProp
             <Label htmlFor="edit-duration">ระยะเวลา (นาที)</Label>
             <Input
               id="edit-duration"
-              type="number"
-              min="15"
-              max="180"
+              type="text"
               value={formData.duration}
-              onChange={(e) => setFormData(prev => ({ ...prev, duration: Number.parseInt(e.target.value) || 60 }))}
+              onChange={onDurationChange}
+              placeholder="60"
+              className={errors.duration ? "border-red-500" : ""}
             />
+            {errors.duration && <p className="text-sm text-red-500 mt-1">{errors.duration}</p>}
+            <p className="text-xs text-muted-foreground">ช่วง 0-1440 นาที</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="edit-max-students">นักเรียนสูงสุด</Label>
             <Input
               id="edit-max-students"
-              type="number"
-              min="1"
-              max="10"
+              type="text"
               value={formData.maxStudents}
-              onChange={(e) => setFormData(prev => ({ ...prev, maxStudents: Number.parseInt(e.target.value) || 1 }))}
+              onChange={onMaxStudentsChange}
+              placeholder="1"
+              className={errors.maxStudents ? "border-red-500" : ""}
             />
+            {errors.maxStudents && <p className="text-sm text-red-500 mt-1">{errors.maxStudents}</p>}
+            <p className="text-xs text-muted-foreground">ช่วง 1-99 คน</p>
           </div>
         </div>
 
@@ -409,6 +430,20 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       newErrors.price = "จำเป็นต้องระบุราคาที่ถูกต้อง"
     }
 
+    // Validate duration
+    if (!formData.duration.trim()) {
+      newErrors.duration = "จำเป็นต้องระบุระยะเวลา"
+    } else if (!validateNumberInput(formData.duration, 0, 1440)) {
+      newErrors.duration = "ระยะเวลาต้องอยู่ระหว่าง 0-1440 นาที"
+    }
+
+    // Validate max students
+    if (!formData.maxStudents.trim()) {
+      newErrors.maxStudents = "จำเป็นต้องระบุจำนวนนักเรียนสูงสุด"
+    } else if (!validateNumberInput(formData.maxStudents, 1, 99)) {
+      newErrors.maxStudents = "จำนวนนักเรียนสูงสุดต้องอยู่ระหว่าง 1-99 คน"
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }, [])
@@ -429,6 +464,46 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     }
   }, [])
 
+  const handleAddDurationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (value === '' || /^\d+$/.test(value)) {
+      const num = Number(value)
+      if (value === '' || (num >= 0 && num <= 1440)) {
+        setAddFormData(prev => ({ ...prev, duration: value }))
+      }
+    }
+  }, [])
+
+  const handleEditDurationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (value === '' || /^\d+$/.test(value)) {
+      const num = Number(value)
+      if (value === '' || (num >= 0 && num <= 1440)) {
+        setEditFormData(prev => ({ ...prev, duration: value }))
+      }
+    }
+  }, [])
+
+  const handleAddMaxStudentsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (value === '' || /^\d+$/.test(value)) {
+      const num = Number(value)
+      if (value === '' || (num >= 1 && num <= 99)) {
+        setAddFormData(prev => ({ ...prev, maxStudents: value }))
+      }
+    }
+  }, [])
+
+  const handleEditMaxStudentsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (value === '' || /^\d+$/.test(value)) {
+      const num = Number(value)
+      if (value === '' || (num >= 1 && num <= 99)) {
+        setEditFormData(prev => ({ ...prev, maxStudents: value }))
+      }
+    }
+  }, [])
+
   const handleAddClass = useCallback(() => {
     if (!validateForm(addFormData, setAddErrors)) return
 
@@ -436,10 +511,10 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       id: Date.now().toString(),
       name: addFormData.name,
       description: addFormData.description,
-      duration: addFormData.duration,
+      duration: Number(addFormData.duration) || 60,
       price: Number(addFormData.price),
       currency: "THB",
-      maxStudents: addFormData.maxStudents,
+      maxStudents: Number(addFormData.maxStudents) || 1,
       isActive: addFormData.isActive,
       createdDate: new Date().toISOString().split("T")[0],
     }
@@ -459,9 +534,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
             ...cls,
             name: editFormData.name,
             description: editFormData.description,
-            duration: editFormData.duration,
+            duration: Number(editFormData.duration) || 60,
             price: Number(editFormData.price),
-            maxStudents: editFormData.maxStudents,
+            maxStudents: Number(editFormData.maxStudents) || 1,
             isActive: editFormData.isActive,
           }
         : cls,
@@ -483,11 +558,11 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     setEditFormData({
       name: privateClass.name,
       description: privateClass.description,
-      duration: privateClass.duration,
+      duration: privateClass.duration.toString(),
       price: privateClass.price.toString(),
-      maxStudents: privateClass.maxStudents,
+      maxStudents: privateClass.maxStudents.toString(),
       isActive: privateClass.isActive,
-      isPrivateClass: true, // Default to private for now
+      isPrivateClass: true, // Default to private for now, but this should come from API data
     })
     setEditErrors({}) // Clear errors when opening edit dialog
     setIsEditDialogOpen(true)
@@ -511,6 +586,10 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
     }
     return `${mins}m`
+  }, [])
+
+  const getClassTypeDisplay = useCallback((isPrivateClass: boolean) => {
+    return isPrivateClass ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม"
   }, [])
 
   return (
@@ -544,6 +623,8 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                   setFormData={setAddFormData}
                   errors={addErrors}
                   onPriceChange={handleAddPriceChange}
+                  onDurationChange={handleAddDurationChange}
+                  onMaxStudentsChange={handleAddMaxStudentsChange}
                 />
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => {
@@ -591,7 +672,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">เรียนส่วนตัว</Badge>
+                    <Badge variant="outline">{getClassTypeDisplay(true)}</Badge>
                   </TableCell>
                   <TableCell>{formatDuration(privateClass.duration)}</TableCell>
                   <TableCell>{privateClass.maxStudents} คน</TableCell>
@@ -622,6 +703,8 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                             setFormData={setEditFormData}
                             errors={editErrors}
                             onPriceChange={handleEditPriceChange}
+                            onDurationChange={handleEditDurationChange}
+                            onMaxStudentsChange={handleEditMaxStudentsChange}
                           />
                           <div className="flex justify-end space-x-2">
                             <Button type="button" variant="outline" onClick={closeEditDialog}>
