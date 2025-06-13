@@ -538,6 +538,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       currency: "THB",
       maxStudents: Number(addFormData.maxStudents) || 1,
       isActive: addFormData.isActive,
+      isPrivateClass: addFormData.isPrivateClass,
       createdDate: new Date().toISOString().split("T")[0],
     }
 
@@ -561,6 +562,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
             price: Number(editFormData.price),
             maxStudents: Number(editFormData.maxStudents) || 1,
             isActive: editFormData.isActive,
+            isPrivateClass: editFormData.isPrivateClass,
           }
         : cls,
     )
@@ -587,7 +589,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       price: privateClass.price.toString(),
       maxStudents: privateClass.maxStudents.toString(),
       isActive: privateClass.isActive,
-      isPrivateClass: true, // Default to private for now, but this should come from API data
+      isPrivateClass: privateClass.isPrivateClass ?? true,
     })
     setEditErrors({}) // Clear errors when opening edit dialog
     setIsEditDialogOpen(true)
@@ -613,8 +615,8 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     return `${mins}m`
   }, [])
 
-  const getClassTypeDisplay = useCallback((isPrivateClass: boolean) => {
-    return isPrivateClass ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม"
+  const getClassTypeDisplay = useCallback((isPrivateClass: boolean | undefined) => {
+    return (isPrivateClass ?? true) ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม"
   }, [])
 
   return (
@@ -704,7 +706,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{getClassTypeDisplay(true)}</Badge>
+                    <Badge variant="outline">{getClassTypeDisplay(privateClass.isPrivateClass)}</Badge>
                   </TableCell>
                   <TableCell>{formatDuration(privateClass.duration)}</TableCell>
                   <TableCell>{privateClass.maxStudents} คน</TableCell>

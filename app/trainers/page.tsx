@@ -170,7 +170,6 @@ export default function TrainersPage() {
     }
 
     return backendClasses
-      .filter(cls => cls.is_private_class) // Only include private classes for the form
       .map(cls => ({
         id: cls.id || `temp-${Date.now()}-${Math.random()}`,
         name: {
@@ -186,6 +185,7 @@ export default function TrainersPage() {
         currency: "THB",
         maxStudents: cls.max_students || 1,
         isActive: cls.is_active !== false,
+        isPrivateClass: cls.is_private_class !== false, // Map backend is_private_class to frontend isPrivateClass
         createdDate: cls.created_at ? new Date(cls.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       }))
   }
@@ -209,6 +209,7 @@ export default function TrainersPage() {
       maxStudents: cls.maxStudents || 1,
       price: cls.price || 1000, // Keep in baht as backend will convert to satang
       isActive: cls.isActive !== false,
+      isPrivateClass: cls.isPrivateClass !== false, // Map frontend isPrivateClass to backend is_private_class
     }))
   }
 

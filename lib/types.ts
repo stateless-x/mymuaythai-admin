@@ -51,6 +51,7 @@ export interface PrivateClass {
   currency: string
   maxStudents: number
   isActive: boolean
+  isPrivateClass?: boolean
   createdDate: string
 }
 
