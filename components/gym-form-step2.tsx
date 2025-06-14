@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector";
-import { TrainerSelector } from "@/components/trainer-selector";
+import { TrainerSelector, TrainerSelectorRef } from "@/components/trainer-selector";
 import { batchUpdateTrainerGymAssociations } from "@/lib/api";
 import type { Gym, Trainer } from "@/lib/types";
 
@@ -72,8 +72,12 @@ export function GymFormStep2({
   });
   
   const [selectedTrainers, setSelectedTrainers] = useState<Trainer[]>([]);
+  const [trainersToRemove, setTrainersToRemove] = useState<string[]>([]);
   const [originalTrainers, setOriginalTrainers] = useState<Trainer[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add ref to TrainerSelector
+  const trainerSelectorRef = useRef<TrainerSelectorRef>(null);
 
   // Fetch current gym trainers if in edit mode
   useEffect(() => {
@@ -103,12 +107,23 @@ export function GymFormStep2({
   };
 
   const handleTrainerUpdates = async (gymId: string) => {
-    // Compare current selection with original to determine additions and removals
-    const originalTrainerIds = originalTrainers.map(t => t.id);
-    const selectedTrainerIds = selectedTrainers.map(t => t.id);
+    // Get the complete list from TrainerSelector instead of comparing manually
+    const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
+    const completeTrainerIds = completeTrainerList.map(t => t.id);
     
-    const addTrainers = selectedTrainerIds.filter(id => !originalTrainerIds.includes(id));
-    const removeTrainers = originalTrainerIds.filter(id => !selectedTrainerIds.includes(id));
+    console.log("=== TRAINER UPDATES ===");
+    console.log("Complete trainer list from selector:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
+    console.log("Original trainer IDs:", originalTrainers.map(t => t.id));
+    console.log("Complete trainer IDs:", completeTrainerIds);
+    
+    // Compare complete list with original to determine actual additions and removals
+    const originalTrainerIds = originalTrainers.map(t => t.id);
+    
+    const addTrainers = completeTrainerIds.filter(id => !originalTrainerIds.includes(id));
+    const removeTrainers = originalTrainerIds.filter(id => !completeTrainerIds.includes(id));
+
+    console.log("Trainers to add:", addTrainers);
+    console.log("Trainers to remove:", removeTrainers);
 
     // Only make API calls if there are changes
     if (addTrainers.length > 0 || removeTrainers.length > 0) {
@@ -126,18 +141,30 @@ export function GymFormStep2({
           description: `${result.errors.length} การอัปเดตล้มเหลว`
         });
       }
+      
+      // After successful API update, use the handleUpdateWithoutRefetch method
+      trainerSelectorRef.current?.handleUpdateWithoutRefetch();
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Get complete trainer list from TrainerSelector
+      const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
+      const completeTrainerIds = completeTrainerList.map(t => t.id);
+      
+      console.log("=== HANDLE SUBMIT ===");
+      console.log("Complete trainer list for submit:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
+      
       // Merge all form data properly
       const completeFormData = {
         ...initialData, // Step 1 data (already cleaned)
         ...formData, // Step 2 data (images, tags)
-        associatedTrainers: selectedTrainers.map(t => t.id), // Add trainer IDs
+        associatedTrainers: completeTrainerIds, // Use complete list instead of selectedTrainers
       };
+      
+      console.log("Complete form data associatedTrainers:", completeFormData.associatedTrainers);
       
       // Only call onSave in edit mode
       if (gym) {
@@ -159,11 +186,20 @@ export function GymFormStep2({
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
+      // Get complete trainer list from TrainerSelector
+      const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
+      const completeTrainerIds = completeTrainerList.map(t => t.id);
+      
+      console.log("=== HANDLE SAVE ===");
+      console.log("Complete trainer list for save:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
+      
       const completeFormData = {
         ...initialData,
         ...formData,
-        associatedTrainers: selectedTrainers.map(t => t.id),
-      };      
+        associatedTrainers: completeTrainerIds, // Use complete list instead of selectedTrainers
+      };
+
+      console.log("Complete form data associatedTrainers:", completeFormData.associatedTrainers);
 
       await onSave(completeFormData);
       
@@ -178,7 +214,7 @@ export function GymFormStep2({
       });
       
       // Update original trainers state after successful save
-      setOriginalTrainers([...selectedTrainers]);
+      setOriginalTrainers(completeTrainerList);
       
       // Close the dialog after successful save in edit mode
       if (gym) {
@@ -249,8 +285,11 @@ export function GymFormStep2({
 
       {/* Trainer Management */}
       <TrainerSelector
+        ref={trainerSelectorRef}
         selectedTrainers={selectedTrainers}
         onTrainersChange={setSelectedTrainers}
+        trainersToRemove={trainersToRemove}
+        onTrainersToRemoveChange={setTrainersToRemove}
         disabled={isSubmitting}
         gymId={gym?.id}
       />
