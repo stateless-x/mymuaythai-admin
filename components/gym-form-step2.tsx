@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector";
-import type { Gym } from "@/lib/types";
+import { TrainerSelector } from "@/components/trainer-selector";
+import { batchUpdateTrainerGymAssociations } from "@/lib/api";
+import type { Gym, Trainer } from "@/lib/types";
 
 interface GymFormStep2Props {
   gym?: Gym;
@@ -15,6 +17,45 @@ interface GymFormStep2Props {
   onSave: (data: Partial<Gym>) => Promise<void>;
   onCancel: () => void;
 }
+
+// Helper function for authenticated requests
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  
+  // Get auth token if available
+  const getAuthToken = (): string | null => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("auth-token");
+    }
+    return null;
+  };
+  
+  const token = getAuthToken();
+  
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+  };
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  
+  if (!response.ok) {
+    let errorDetails;
+    try {
+      errorDetails = await response.json();
+    } catch {
+      errorDetails = await response.text();
+    }
+    
+    throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`);
+  }
+  
+  return response.json();
+};
 
 export function GymFormStep2({
   gym,
@@ -29,8 +70,64 @@ export function GymFormStep2({
     images: gym?.images || [],
     tags: gym?.tags || [],
   });
-
+  
+  const [selectedTrainers, setSelectedTrainers] = useState<Trainer[]>([]);
+  const [originalTrainers, setOriginalTrainers] = useState<Trainer[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch current gym trainers if in edit mode
+  useEffect(() => {
+    if (gym?.id) {
+      fetchGymTrainers(gym.id);
+    }
+  }, [gym?.id]);
+
+  const fetchGymTrainers = async (gymId: string) => {
+    try {
+      const params = new URLSearchParams({
+        gymId: gymId,
+        includeInactive: "false",
+        page: "1",
+        pageSize: "100"
+      });
+      
+      const response = await apiRequest(`/api/trainers?${params.toString()}`);
+      const trainers = response.data?.trainers || response.trainers || response.data || response;
+      const trainersArray = Array.isArray(trainers) ? trainers : [];
+      
+      setSelectedTrainers(trainersArray);
+      setOriginalTrainers(trainersArray); // Keep track of original state for comparison
+    } catch (error) {
+      console.error("Error fetching gym trainers:", error);
+    }
+  };
+
+  const handleTrainerUpdates = async (gymId: string) => {
+    // Compare current selection with original to determine additions and removals
+    const originalTrainerIds = originalTrainers.map(t => t.id);
+    const selectedTrainerIds = selectedTrainers.map(t => t.id);
+    
+    const addTrainers = selectedTrainerIds.filter(id => !originalTrainerIds.includes(id));
+    const removeTrainers = originalTrainerIds.filter(id => !selectedTrainerIds.includes(id));
+
+    // Only make API calls if there are changes
+    if (addTrainers.length > 0 || removeTrainers.length > 0) {
+      const result = await batchUpdateTrainerGymAssociations(addTrainers, removeTrainers, gymId);
+      
+      if (!result.success) {
+        const { toast } = await import("sonner");
+        toast.error("ไม่สามารถอัปเดตครูมวยได้", {
+          description: result.error || "กรุณาลองอีกครั้ง"
+        });
+        throw new Error(result.error || "Failed to update trainers");
+      } else if (result.errors && result.errors.length > 0) {
+        const { toast } = await import("sonner");
+        toast.warning("อัปเดตครูมวยบางส่วนไม่สำเร็จ", {
+          description: `${result.errors.length} การอัปเดตล้มเหลว`
+        });
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -39,11 +136,16 @@ export function GymFormStep2({
       const completeFormData = {
         ...initialData, // Step 1 data (already cleaned)
         ...formData, // Step 2 data (images, tags)
+        associatedTrainers: selectedTrainers.map(t => t.id), // Add trainer IDs
       };
       
       // Only call onSave in edit mode
       if (gym) {
         await onSave(completeFormData);
+        // Update trainer associations after saving gym data
+        if (gym.id) {
+          await handleTrainerUpdates(gym.id);
+        }
       }
       
       onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
@@ -60,14 +162,23 @@ export function GymFormStep2({
       const completeFormData = {
         ...initialData,
         ...formData,
+        associatedTrainers: selectedTrainers.map(t => t.id),
       };      
 
       await onSave(completeFormData);
       
+      // Update trainer associations after saving gym data
+      if (gym?.id) {
+        await handleTrainerUpdates(gym.id);
+      }
+      
       const { toast } = await import("sonner");
       toast.success("บันทึกข้อมูลสำเร็จ", {
-        description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
+        description: "ข้อมูลยิมและครูมวยได้รับการบันทึกแล้ว"
       });
+      
+      // Update original trainers state after successful save
+      setOriginalTrainers([...selectedTrainers]);
       
       // Close the dialog after successful save in edit mode
       if (gym) {
@@ -105,7 +216,7 @@ export function GymFormStep2({
             2
           </div>
           <span className="ml-2 text-sm font-medium text-blue-600">
-            รูปภาพและสิ่งอำนวยความสะดวก
+            รูปภาพ, สิ่งอำนวยความสะดวก และครูมวย
           </span>
         </div>
       </div>
@@ -134,6 +245,14 @@ export function GymFormStep2({
         selectedTags={formData.tags || []}
         onTagsChange={(tags) => setFormData({ ...formData, tags })}
         disabled={isSubmitting}
+      />
+
+      {/* Trainer Management */}
+      <TrainerSelector
+        selectedTrainers={selectedTrainers}
+        onTrainersChange={setSelectedTrainers}
+        disabled={isSubmitting}
+        gymId={gym?.id}
       />
 
       {/* Form Actions */}

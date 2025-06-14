@@ -160,6 +160,75 @@ export const healthApi = {
   check: () => apiRequest("/api/health"),
 }
 
+// Update trainer's gym association
+export async function updateTrainerGym(trainerId: string, gymId: string | null): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiRequest(`/api/trainers/${trainerId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        gym_id: gymId,
+      }),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating trainer gym association:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Network error' 
+    };
+  }
+}
+
+// Update gym with trainer associations
+export async function updateGymTrainers(gymId: string, trainerIds: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiRequest(`/api/gyms/${gymId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        associatedTrainers: trainerIds,
+      }),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating gym trainers:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Network error' 
+    };
+  }
+}
+
+// Batch update trainers' gym associations
+export async function batchUpdateTrainerGymAssociations(
+  addTrainers: string[], 
+  removeTrainers: string[], 
+  gymId: string
+): Promise<{ success: boolean; error?: string; errors?: Array<{ trainerId: string; error: string }> }> {
+  const errors: Array<{ trainerId: string; error: string }> = [];
+
+  // Add trainers to gym
+  for (const trainerId of addTrainers) {
+    const result = await updateTrainerGym(trainerId, gymId);
+    if (!result.success) {
+      errors.push({ trainerId, error: result.error || 'Failed to add trainer to gym' });
+    }
+  }
+
+  // Remove trainers from gym
+  for (const trainerId of removeTrainers) {
+    const result = await updateTrainerGym(trainerId, null);
+    if (!result.success) {
+      errors.push({ trainerId, error: result.error || 'Failed to remove trainer from gym' });
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    error: errors.length > 0 ? `${errors.length} operations failed` : undefined,
+    errors: errors.length > 0 ? errors : undefined,
+  };
+}
+
 // Export default for convenience
 export default {
   gyms: gymsApi,
