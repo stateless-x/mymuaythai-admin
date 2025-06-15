@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ExternalLink, Check, ChevronsUpDown } from "lucide-react"
+import { ExternalLink, Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import type { Gym, Province } from "@/lib/types"
 import { provincesApi } from "@/lib/api"
@@ -438,18 +439,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center space-x-2 pt-1">
-              <Switch
-                id="status"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                disabled={isSubmitting}
-              />
-              <Label htmlFor="status" className="text-md">
-                เปิดใช้งาน
-              </Label>
-            </div>
           </CardContent>
         </Card>
 
@@ -517,6 +506,34 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                 )}
               </div>
               {errors.youtube_url && <p className="text-md text-red-500 mt-1">{errors.youtube_url}</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Account Status */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center">
+              <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" />
+              สถานะการแสดงผลของยิม
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Alert>
+              <AlertDescription>
+                <span className="text-red-500"><strong>คำเตือน: </strong>การปิดใช้งานจะทำให้ยิมนี้ไม่ปรากฏในระบบสำหรับผู้ใช้ทั่วไป</span>
+              </AlertDescription>
+            </Alert>
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                id="status"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                disabled={isSubmitting}
+              />
+              <Label htmlFor="status" className="text-sm font-medium">
+                เปิดใช้งานยิม
+              </Label>
             </div>
           </CardContent>
         </Card>
