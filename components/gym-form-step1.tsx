@@ -25,9 +25,10 @@ interface GymFormStep1Props {
   onNext: (data: Partial<Gym>) => void
   onCancel: () => void
   onSave: (data: Partial<Gym>) => Promise<void>
+  onSuccess?: () => void
 }
 
-export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Props) {
+export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFormStep1Props) {
   const [formData, setFormData] = useState({
     name_th: gym?.name_th,
     name_en: gym?.name_en,
@@ -49,7 +50,25 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
   const [provincesError, setProvincesError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
 
-  // Fetch provinces function - moved outside useEffect for better organization
+  useEffect(() => {
+    // Reset form data when the gym prop changes.
+    // This ensures that if the form is reused for a different gym,
+    // the fields are correctly populated with the new gym's data.
+    setFormData({
+      name_th: gym?.name_th,
+      name_en: gym?.name_en,
+      phone: gym?.phone,
+      email: gym?.email || undefined,
+      description_th: gym?.description_th,
+      description_en: gym?.description_en,
+      map_url: gym?.map_url || undefined,
+      youtube_url: gym?.youtube_url || undefined,
+      line_id: gym?.line_id || undefined,
+      is_active: gym?.is_active !== undefined ? gym.is_active : true,
+      province_id: gym?.province_id || gym?.province?.id || undefined,
+    })
+  }, [gym])
+
   const fetchProvinces = async () => {
     setIsLoadingProvinces(true)
     setProvincesError(null)
@@ -64,7 +83,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     }
   }
 
-  // Fetch provinces on component mount with cleanup
   useEffect(() => {
     let isMounted = true
     
@@ -73,8 +91,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
       setProvincesError(null)
       try {
         const response = await provincesApi.getAll()
-        
-        // Only update state if component is still mounted
         if (isMounted) {
           setProvinces(response.data || response)
         }
@@ -92,7 +108,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     
     loadProvinces()
     
-    // Cleanup function
     return () => {
       isMounted = false
     }
@@ -114,8 +129,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     if (cleanedData.map_url === "") cleanedData.map_url = undefined
     if (cleanedData.youtube_url === "") cleanedData.youtube_url = undefined
     if (cleanedData.line_id === "") cleanedData.line_id = undefined
-    
-    // Clean phone number (remove dashes)
     if (cleanedData.phone) {
       cleanedData.phone = cleanPhoneForAPI(cleanedData.phone)
     }
@@ -137,13 +150,18 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
     try {
       const cleanedData = cleanFormDataForAPI(formData)
       
-      if (!gym) {
-        await onSave(cleanedData)
-      }
+      // When moving to the next step, we only need to pass the data forward.
+      // The final submission will handle the API call.
+      // In edit mode, onSave was causing the form to close prematurely.
+      // if (gym) {
+      //   await onSave(cleanedData)
+      // }
       
       onNext(cleanedData)
     } catch (error) {
-      console.error("Error saving:", error)
+      console.error("Error proceeding to next step:", error)
+      // It's better not to show a toast here as it might be confusing.
+      // The final submit will have its own error handling.
     } finally {
       setIsSubmitting(false)
     }
@@ -166,6 +184,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
       toast.success("บันทึกข้อมูลสำเร็จ", {
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
       })
+      onSuccess?.()
     } catch (error) {
       console.error("Error saving:", error)
       const { toast } = await import('sonner')
@@ -296,7 +315,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
               <Label htmlFor="province" className="text-md font-medium">
                 จังหวัด *
               </Label>
-              {/* Show error message if provinces failed to load */}
               {provincesError && (
                 <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
                   <p className="text-sm text-red-600">{provincesError}</p>
@@ -311,7 +329,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                   </Button>
                 </div>
               )}
-              {/* Overlay to dim the screen when popover is open */}
               {isOpen && (
                 <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
               )}

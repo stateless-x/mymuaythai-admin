@@ -16,6 +16,7 @@ interface GymFormStep2Props {
   onBack: () => void;
   onSave: (data: Partial<Gym>) => Promise<void>;
   onCancel: () => void;
+  onSuccess?: () => void;
 }
 
 // Helper function for authenticated requests
@@ -64,6 +65,7 @@ export function GymFormStep2({
   onBack,
   onSave,
   onCancel,
+  onSuccess,
 }: GymFormStep2Props) {
   const [formData, setFormData] = useState({
     ...initialData,
@@ -78,6 +80,16 @@ export function GymFormStep2({
 
   // Add ref to TrainerSelector
   const trainerSelectorRef = useRef<TrainerSelectorRef>(null);
+
+  useEffect(() => {
+    // When the base gym data or the data from step 1 changes,
+    // update the form state accordingly to prevent stale data.
+    setFormData({
+      ...initialData,
+      images: gym?.images || [],
+      tags: gym?.tags || [],
+    })
+  }, [gym, initialData])
 
   // Fetch current gym trainers if in edit mode
   useEffect(() => {
@@ -150,81 +162,42 @@ export function GymFormStep2({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Get complete trainer list from TrainerSelector
       const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
       const completeTrainerIds = completeTrainerList.map(t => t.id);
-      
-      console.log("=== HANDLE SUBMIT ===");
-      console.log("Complete trainer list for submit:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-      
-      // Merge all form data properly
-      const completeFormData = {
-        ...initialData, // Step 1 data (already cleaned)
-        ...formData, // Step 2 data (images, tags)
-        associatedTrainers: completeTrainerIds, // Use complete list instead of selectedTrainers
-      };
-      
-      console.log("Complete form data associatedTrainers:", completeFormData.associatedTrainers);
-      
-      // Only call onSave in edit mode
-      if (gym) {
-        await onSave(completeFormData);
-        // Update trainer associations after saving gym data
-        if (gym.id) {
-          await handleTrainerUpdates(gym.id);
-        }
-      }
-      
-      onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
-    } catch (error) {
-      console.error("Error submitting gym form:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
-  const handleSave = async () => {
-    setIsSubmitting(true);
-    try {
-      // Get complete trainer list from TrainerSelector
-      const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
-      const completeTrainerIds = completeTrainerList.map(t => t.id);
-      
-      console.log("=== HANDLE SAVE ===");
-      console.log("Complete trainer list for save:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-      
       const completeFormData = {
         ...initialData,
         ...formData,
-        associatedTrainers: completeTrainerIds, // Use complete list instead of selectedTrainers
+        associatedTrainers: completeTrainerIds,
       };
 
-      console.log("Complete form data associatedTrainers:", completeFormData.associatedTrainers);
-
-      await onSave(completeFormData);
-      
-      // Update trainer associations after saving gym data
-      if (gym?.id) {
-        await handleTrainerUpdates(gym.id);
-      }
-      
-      const { toast } = await import("sonner");
-      toast.success("บันทึกข้อมูลสำเร็จ", {
-        description: "ข้อมูลยิมและครูมวยได้รับการบันทึกแล้ว"
-      });
-      
-      // Update original trainers state after successful save
-      setOriginalTrainers(completeTrainerList);
-      
-      // Close the dialog after successful save in edit mode
       if (gym) {
-        onCancel();
+        // Update logic
+        await onSave(completeFormData);
+        if (gym.id) {
+          await handleTrainerUpdates(gym.id);
+        }
+        const { toast } = await import("sonner");
+        toast.success("บันทึกข้อมูลสำเร็จ", {
+          description: "ข้อมูลยิมและครูมวยได้รับการบันทึกแล้ว",
+        });
+        setOriginalTrainers(completeTrainerList);
+      } else {
+        // Create logic
+        onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
+        const { toast } = await import("sonner");
+        toast.success("สร้างยิมสำเร็จ", {
+          description: "ยิมใหม่ถูกสร้างเรียบร้อยแล้ว",
+        });
       }
+
+      onCancel(); // Close form for both create and update
+      onSuccess?.(); // Trigger refetch
     } catch (error) {
-      console.error("Error saving:", error);
+      console.error("Error submitting form:", error);
       const { toast } = await import("sonner");
       toast.error("ไม่สามารถบันทึกข้อมูลได้", {
-        description: "กรุณาลองอีกครั้ง"
+        description: "กรุณาลองอีกครั้ง",
       });
     } finally {
       setIsSubmitting(false);
@@ -307,7 +280,7 @@ export function GymFormStep2({
         <div className="flex gap-2">
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={isEditMode ? handleSave : handleSubmit}
+            onClick={handleSubmit}
             disabled={isSubmitting}
           >
             {isSubmitting ? "กำลังบันทึก..." : gym ? "บันทึก" : "สร้างยิม"}

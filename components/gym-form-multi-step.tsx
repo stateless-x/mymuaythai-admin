@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { GymFormStep1 } from "@/components/gym-form-step1"
 import { GymFormStep2 } from "@/components/gym-form-step2"
 import type { Gym } from "@/lib/types"
@@ -10,11 +10,19 @@ interface GymFormMultiStepProps {
   onSubmit: (gym: Omit<Gym, "id" | "joinedDate">) => void
   onCancel: () => void
   onSaveOnly?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
+  onSuccess?: () => void
 }
 
-export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly }: GymFormMultiStepProps) {
+export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSuccess }: GymFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [step1Data, setStep1Data] = useState<Partial<Gym>>({})
+
+  useEffect(() => {
+    // When the gym prop changes (e.g., opening for a different gym or for creation),
+    // reset the form to its initial state to prevent displaying stale data.
+    setCurrentStep(1)
+    setStep1Data({})
+  }, [gym])
 
   // Save function that either saves existing gym or does nothing for new gyms
   const handleSave = async (data: Partial<Gym>) => {
@@ -44,6 +52,7 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly }: GymFor
       onNext={handleStep1Next} 
       onCancel={onCancel} 
       onSave={handleSave}
+      onSuccess={onSuccess}
     />
   }
 
@@ -55,6 +64,7 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly }: GymFor
       onBack={handleStep2Back}
       onSave={handleSave}
       onCancel={onCancel}
+      onSuccess={onSuccess}
     />
   )
 }

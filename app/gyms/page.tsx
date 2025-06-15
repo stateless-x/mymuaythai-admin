@@ -263,10 +263,14 @@ export default function GymsPage() {
                     </DialogHeader>
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
-                    <GymForm onSubmit={handleAddGym} onCancel={() => {
-                      setIsAddDialogOpen(false)
-                      setEditingGym(null)
-                    }} />
+                    <GymForm 
+                      onSubmit={handleAddGym} 
+                      onCancel={() => {
+                        setIsAddDialogOpen(false)
+                        setEditingGym(null)
+                      }}
+                      onSuccess={fetchGyms}
+                    />
                   </div>
                 </DialogContent>
               </Dialog>
@@ -422,6 +426,7 @@ export default function GymsPage() {
                                   onSubmit={handleEditGym} 
                                   onCancel={() => closeEditDialog()}
                                   onSaveOnly={handleSaveGym}
+                                  onSuccess={fetchGyms}
                                 />
                               </div>
                             </DialogContent>
