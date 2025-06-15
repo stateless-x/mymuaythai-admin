@@ -300,10 +300,9 @@ export default function TrainersPage() {
     try {
       const apiData = transformFormDataToApi(formData)
       const newTrainer = await trainersApi.create(apiData)
-      
       setIsAddDialogOpen(false)
       setEditingTrainer(null)
-      setTrainers(prev => [newTrainer, ...prev])
+      fetchTrainers();
       toast.success("เพิ่มครูมวยสำเร็จ")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
