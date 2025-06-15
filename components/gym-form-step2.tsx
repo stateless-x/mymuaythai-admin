@@ -91,33 +91,6 @@ export function GymFormStep2({
     })
   }, [gym, initialData])
 
-  // Fetch current gym trainers if in edit mode
-  useEffect(() => {
-    if (gym?.id) {
-      fetchGymTrainers(gym.id);
-    }
-  }, [gym?.id]);
-
-  const fetchGymTrainers = async (gymId: string) => {
-    try {
-      const params = new URLSearchParams({
-        gymId: gymId,
-        includeInactive: "false",
-        page: "1",
-        pageSize: "100"
-      });
-      
-      const response = await apiRequest(`/api/trainers?${params.toString()}`);
-      const trainers = response.data?.trainers || response.trainers || response.data || response;
-      const trainersArray = Array.isArray(trainers) ? trainers : [];
-      
-      setSelectedTrainers(trainersArray);
-      setOriginalTrainers(trainersArray); // Keep track of original state for comparison
-    } catch (error) {
-      console.error("Error fetching gym trainers:", error);
-    }
-  };
-
   const handleTrainerUpdates = async (gymId: string) => {
     // Get the complete list from TrainerSelector instead of comparing manually
     const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
@@ -172,7 +145,7 @@ export function GymFormStep2({
       };
 
       if (gym) {
-        // Update logic
+        // Update logic - for edit mode, don't close the dialog automatically
         await onSave(completeFormData);
         if (gym.id) {
           await handleTrainerUpdates(gym.id);
@@ -182,17 +155,21 @@ export function GymFormStep2({
           description: "ข้อมูลยิมและครูมวยได้รับการบันทึกแล้ว",
         });
         setOriginalTrainers(completeTrainerList);
+        
+        // For edit mode: trigger refetch to update the list
+        onSuccess?.(); // Re-enable refetch after save
       } else {
-        // Create logic
+        // Create logic - for create mode, close dialog after creation
         onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
         const { toast } = await import("sonner");
         toast.success("สร้างยิมสำเร็จ", {
           description: "ยิมใหม่ถูกสร้างเรียบร้อยแล้ว",
         });
+        
+        // For create mode: close dialog and trigger refetch
+        onCancel(); // Close form
+        onSuccess?.(); // Trigger refetch
       }
-
-      onCancel(); // Close form for both create and update
-      onSuccess?.(); // Trigger refetch
     } catch (error) {
       console.error("Error submitting form:", error);
       const { toast } = await import("sonner");

@@ -49,23 +49,41 @@ export default function GymsPage() {
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRefetching, setIsRefetching] = useState(false)
 
-  const fetchGyms = async () => {
+  const fetchGyms = async (isInitial = false) => {
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
     try {
-      setIsLoading(true)
-      const data = await gymsApi.getAll()
+      if (isInitial) {
+        setIsLoading(true)
+      } else {
+        setIsRefetching(true)
+      }
+      
+      // For refetches, start a timer and the API call simultaneously.
+      const fetchPromise = gymsApi.getAll();
+      const delayPromise = isInitial ? Promise.resolve() : delay(1000); // 1-second minimum display time
+
+      // Wait for both to complete before proceeding.
+      const [data] = await Promise.all([fetchPromise, delayPromise]);
+
       setGyms(data)
       setError(null)
     } catch (err) {
       setError("Failed to fetch gyms")
       toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
     } finally {
-      setIsLoading(false)
+      if (isInitial) {
+        setIsLoading(false)
+      } else {
+        setIsRefetching(false)
+      }
     }
   }
 
   useEffect(() => {
-    fetchGyms()
+    fetchGyms(true)
   }, [])
 
   const closeEditDialog = () => {
@@ -172,13 +190,28 @@ export default function GymsPage() {
   const handleSaveGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
+        // Only perform the API update. Do not update state here to prevent re-renders.
         const updatedGym = await gymsApi.update(editingGym.id, gymData)
-        setGyms(prev => prev.map(gym => gym.id === editingGym.id ? updatedGym : gym))
+        // The success handler will be responsible for fetching new data.
         return updatedGym
       } catch (err) {
         throw err 
       }
     }
+  }
+
+  // Special success handler for edit mode that closes dialog and refreshes
+  const handleEditSuccess = () => {
+    setEditingGym(null) // Close the dialog first
+    // Delay the data refresh to ensure dialog closes completely
+    setTimeout(() => {
+      fetchGyms() // Then refresh the data after dialog is closed
+    }, 1000)
+  }
+
+  // Success handler for step 1 saves - only refresh data, don't close dialog
+  const handleStep1Success = () => {
+    fetchGyms() // Refresh the data but keep dialog open
   }
 
   const handleDeleteGym = async (gymId: string) => {
@@ -241,8 +274,10 @@ export default function GymsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">จัดการยิมบนแพลตฟอร์ม
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold tracking-tight">จัดการยิมบนแพลตฟอร์ม</h1>
+                  {isRefetching && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                </div>
                 <p className="text-muted-foreground">คุณสามารถดู แก้ไข หรือเพิ่มยิมใหม่ รวมถึงจัดการรายละเอียดที่ใช้แสดงผลบนแพลตฟอร์ม</p>
               </div>
               <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
@@ -402,10 +437,12 @@ export default function GymsPage() {
                               }
                             }}
                             modal={true}
-                          >
+                          > 
+
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditingGym(gym)
+                                console.log("Editing gym:", gym)
                               }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -422,11 +459,12 @@ export default function GymsPage() {
                               </div>
                               <div className="flex-1 overflow-y-auto px-6 pb-6">
                                 <GymForm 
-                                  gym={gym} 
+                                  gym={editingGym || undefined} 
                                   onSubmit={handleEditGym} 
                                   onCancel={() => closeEditDialog()}
                                   onSaveOnly={handleSaveGym}
-                                  onSuccess={fetchGyms}
+                                  onSuccess={handleEditSuccess}
+                                  onStep1Success={handleStep1Success}
                                 />
                               </div>
                             </DialogContent>

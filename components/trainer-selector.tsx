@@ -153,23 +153,35 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pageSize = 50;
 
-  // Fetch available trainers (active, no gym, not freelancer)
+  // Consolidated useEffect for initial data loading
   useEffect(() => {
-    fetchAvailableTrainers(1, true);
-  }, []);
-
-  // Fetch existing gym trainers if gymId is provided - only once per gymId
-  useEffect(() => {
-    // Don't fetch if we just had a successful update (within last 30 seconds)
-    const timeSinceLastUpdate = Date.now() - lastSuccessfulUpdate;
-    const skipFetchAfterUpdate = timeSinceLastUpdate < 30000; // 30 seconds
+    let isMounted = true;
     
-    if (gymId && existingGymTrainers.length === 0 && !skipFetchAfterUpdate) {
-      fetchExistingGymTrainers(gymId);
-    }
-  }, [gymId]); // Only depend on gymId, not existingGymTrainers to avoid loops
+    const loadInitialData = async () => {
+      // Don't fetch available trainers automatically - fetch them lazily when dropdown opens
+      // if (availableTrainers.length === 0) {
+      //   await fetchAvailableTrainers(1, true);
+      // }
+      
+      // Only fetch existing gym trainers if we have a gymId and haven't fetched yet
+      if (gymId && existingGymTrainers.length === 0 && isMounted) {
+        const timeSinceLastUpdate = Date.now() - lastSuccessfulUpdate;
+        const skipFetchAfterUpdate = timeSinceLastUpdate < 30000; // 30 seconds
+        
+        if (!skipFetchAfterUpdate) {
+          await fetchExistingGymTrainers(gymId);
+        }
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [gymId]); // Only depend on gymId
 
-  // Auto-refresh existing trainers when triggerRefresh changes
+  // Separate useEffect only for triggerRefresh (manual refresh)
   useEffect(() => {
     if (triggerRefresh && triggerRefresh > 0 && gymId) {
       fetchExistingGymTrainers(gymId);
@@ -199,8 +211,7 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
         gymId: gymId,
         includeInactive: "false",
         page: "1",
-        pageSize: "50",
-        includeAssigned: "true"
+        pageSize: "100"
       });
       
       const response = await apiRequest(`/api/trainers?${params.toString()}`);
@@ -223,6 +234,7 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
       
       setExistingGymTrainers(gymTrainers);
     } catch (error) {
+      console.error("Error fetching existing gym trainers:", error);
       // Don't clear existing trainers on error - keep what we have
     } finally {
       setIsLoadingExisting(false);
@@ -482,6 +494,7 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   const handleDropdownToggle = () => {
     setIsDropdownOpen(!isDropdownOpen);
+    // Only fetch available trainers when dropdown is opened and we don't have data yet
     if (!isDropdownOpen && availableTrainers.length === 0) {
       fetchAvailableTrainers(1, true);
     }
