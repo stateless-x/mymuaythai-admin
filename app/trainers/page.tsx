@@ -35,13 +35,14 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { toast } from "sonner"
-import type { Trainer } from "@/lib/types"
-import { trainersApi, gymsApi } from "@/lib/api"
+import type { Trainer, Province } from "@/lib/types"
+import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
   const [gyms, setGyms] = useState<any[]>([])
+  const [provinces, setProvinces] = useState<Province[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
   const [freelancerFilter, setFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
@@ -56,17 +57,20 @@ export default function TrainersPage() {
     try {
       setIsLoading(true)
       
-      const [trainersData, gymsData] = await Promise.all([
+      const [trainersData, gymsData, provincesData] = await Promise.all([
         trainersApi.getAll(),
-        gymsApi.getAll()
+        gymsApi.getAll(),
+        provincesApi.getAll()
       ])
       
       // Handle both direct array and nested data.items structure
       const trainersArray = trainersData.items || trainersData || []
       const gymsArray = gymsData.items || gymsData || []
+      const provincesArray = provincesData.data || provincesData.items || provincesData || []
       
       setTrainers(trainersArray)
       setGyms(gymsArray)
+      setProvinces(provincesArray)
       setError(null)
       
     } catch (err) {
@@ -143,6 +147,7 @@ export default function TrainersPage() {
       phone: trainer.phone || "",
       status: trainer.is_active ? "active" : "inactive",
       assignedGym: trainer.primaryGym?.id || "",
+      province_id: trainer.province?.id || null,
       tags: trainer.tags || [],
       isFreelancer: trainer.is_freelance || false,
       bio: {
@@ -230,6 +235,7 @@ export default function TrainersPage() {
       line_id: formData.lineId || "",
       exp_year: formData.yearsOfExperience || 0,
       tags: formData.tags,
+      province_id: formData.province_id,
       classes: transformedClasses,
     }
     
@@ -409,6 +415,7 @@ export default function TrainersPage() {
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
                     <TrainerForm 
                       gyms={gyms}
+                      provinces={provinces}
                       onSubmit={handleAddTrainer} 
                       onCancel={() => {
                         setIsAddDialogOpen(false)
@@ -582,6 +589,7 @@ export default function TrainersPage() {
                                   <TrainerForm 
                                     trainer={transformTrainerToFormData(trainer) as any}
                                     gyms={gyms}
+                                    provinces={provinces}
                                     onSubmit={handleEditTrainer} 
                                     onCancel={() => closeEditDialog()}
                                   />

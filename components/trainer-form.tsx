@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Gym } from "@/lib/types"
+import type { Gym, Province } from "@/lib/types"
 import { PrivateClassManager } from "@/components/private-class-manager"
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector"
 import { 
@@ -61,6 +61,7 @@ export interface TrainerFormData {
   phone: string
   status: "active" | "inactive"
   assignedGym: string
+  province_id: number | null
   tags: string[]
   isFreelancer: boolean
   bio: { th: string; en: string }
@@ -73,11 +74,12 @@ export interface TrainerFormData {
 export interface TrainerFormProps {
   trainer?: TrainerFormData | any // Allow both form data and backend data structure
   gyms?: Gym[]
+  provinces?: Province[]
   onSubmit: (trainer: TrainerFormData) => void
   onCancel: () => void
 }
 
-export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerFormProps) {
+export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCancel }: TrainerFormProps) {
   const [formData, setFormData] = useState<TrainerFormData>({
     firstName: {
       th: trainer?.firstName?.th || trainer?.first_name_th || "",
@@ -91,6 +93,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
     phone: trainer?.phone || "",
     status: trainer?.status || (trainer?.is_active !== undefined ? (trainer.is_active ? "active" : "inactive") : "active"),
     assignedGym: trainer?.assignedGym || trainer?.primaryGym?.id || trainer?.gym_id || "",
+    province_id: trainer?.province_id || trainer?.province?.id || null,
     tags: trainer?.tags || [],
     isFreelancer: trainer?.isFreelancer !== undefined ? trainer.isFreelancer : (trainer?.is_freelance || false),
     bio: {
@@ -105,6 +108,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isGymPopoverOpen, setIsGymPopoverOpen] = useState(false)
+  const [isProvincePopoverOpen, setIsProvincePopoverOpen] = useState(false)
 
   const validateForm = () => {
     const requiredFields = [
@@ -124,6 +128,7 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
       'email': formData.email,
       'yearsOfExperience': formData.yearsOfExperience,
       'assignedGym': formData.assignedGym,
+      'province_id': formData.province_id,
       'isFreelancer': formData.isFreelancer
     }
 
@@ -140,6 +145,10 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
 
     if (!formData.isFreelancer && !formData.assignedGym) {
       formErrors.assignedGym = "ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม"
+    }
+
+    if (!formData.province_id) {
+      formErrors.province_id = "กรุณาเลือกจังหวัด"
     }
 
     setErrors(formErrors)
@@ -384,7 +393,12 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     id="freelancer"
                     checked={formData.isFreelancer}
                     onCheckedChange={(checked) => {
-                      setFormData({ ...formData, isFreelancer: checked })
+                      const newFormData = { ...formData, isFreelancer: checked }
+                      if (checked) {
+                        // When switching to freelancer, clear assigned gym.
+                        newFormData.assignedGym = ""
+                      }
+                      setFormData(newFormData)
                     }}
                     disabled={isSubmitting}
                   />
@@ -481,6 +495,68 @@ export function TrainerForm({ trainer, gyms = [], onSubmit, onCancel }: TrainerF
                     {errors.assignedGym && <p className="text-sm text-red-500 mt-1">{errors.assignedGym}</p>}
                   </div>
                 )}
+                
+                <div className="space-y-1">
+                  <Label htmlFor="province" className="text-sm">
+                    จังหวัด *
+                  </Label>
+                  <Popover open={isProvincePopoverOpen} onOpenChange={setIsProvincePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isProvincePopoverOpen}
+                        className={cn(
+                          "h-9 w-full justify-between text-left",
+                          !formData.province_id && "text-muted-foreground",
+                          errors.province_id && "border-red-500"
+                        )}
+                        disabled={isSubmitting}
+                      >
+                        <span className="truncate">
+                          {formData.province_id
+                            ? provinces?.find(p => p.id === formData.province_id)?.name_th
+                            : "เลือกจังหวัด"}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="ค้นหาจังหวัด..."
+                          className="h-9"
+                        />
+                        <CommandEmpty>ไม่พบจังหวัดที่ค้นหา</CommandEmpty>
+                        <CommandList>
+                           <div className="max-h-[200px] overflow-y-auto">
+                            <CommandGroup>
+                              {provinces?.map((province) => (
+                                <CommandItem
+                                  key={province.id}
+                                  value={province.name_th}
+                                  onSelect={() => {
+                                    setFormData({ ...formData, province_id: province.id })
+                                    setIsProvincePopoverOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.province_id === province.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {province.name_th}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </div>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {errors.province_id && <p className="text-sm text-red-500 mt-1">{errors.province_id}</p>}
+                </div>
               </CardContent>
             </Card>
 
