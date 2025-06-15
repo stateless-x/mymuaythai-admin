@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { GymForm } from "@/components/gym-form"
@@ -33,58 +33,204 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Gym } from "@/lib/types"
 import { gymsApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
+import { useDebounce } from "@/hooks/use-debounce"
+
+function PaginationControls({ page, total, pageSize, onPageChange }: { page: number, total: number, pageSize: number, onPageChange: (page: number) => void }) {
+  const totalPages = Math.ceil(total / pageSize)
+
+  // Always show pagination if there are more than pageSize items, regardless of what backend says
+  const shouldShowPagination = total > pageSize || totalPages > 1
+
+  if (!shouldShowPagination) {
+    return null
+  }
+
+  return (
+    <div className="flex items-center justify-between pt-4">
+      <div className="text-sm text-muted-foreground">
+        หน้า {page} จาก {totalPages} (ทั้งหมด {total} รายการ)
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(1)}
+          disabled={page === 1}
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function GymsPage() {
   const [gyms, setGyms] = useState<Gym[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
   const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isRefetching, setIsRefetching] = useState(false)
+  
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+  })
 
-  const fetchGyms = async (isInitial = false) => {
-    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-    try {
-      if (isInitial) {
-        setIsLoading(true)
+  // Single useEffect to handle all data fetching
+  useEffect(() => {
+    const fetchData = async () => {
+      // Show search loading only if we're searching, not on initial load
+      if (debouncedSearchTerm) {
+        setIsSearching(true)
       } else {
-        setIsRefetching(true)
+        setIsLoading(true)
       }
       
-      // For refetches, start a timer and the API call simultaneously.
-      const fetchPromise = gymsApi.getAll();
-      const delayPromise = isInitial ? Promise.resolve() : delay(1000); // 1-second minimum display time
-
-      // Wait for both to complete before proceeding.
-      const [data] = await Promise.all([fetchPromise, delayPromise]);
-
-      setGyms(data)
-      setError(null)
-    } catch (err) {
-      setError("Failed to fetch gyms")
-      toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
-    } finally {
-      if (isInitial) {
+      try {
+        const params = {
+          page: pagination.page, // Use the current page as-is
+          pageSize: pagination.pageSize,
+          searchTerm: debouncedSearchTerm,
+          is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
+          sortField: sortField,
+          sortBy: sortBy === 'newest' ? 'desc' : 'asc',
+        }
+        
+        const response = await gymsApi.getAll(params);
+        
+        let filteredGyms = response.data || [];
+        
+        // Client-side filtering as fallback if backend search doesn't work properly
+        if (debouncedSearchTerm) {
+          const searchLower = debouncedSearchTerm.toLowerCase();
+          filteredGyms = filteredGyms.filter((gym: Gym) => 
+            gym.name_th?.toLowerCase().includes(searchLower) ||
+            gym.name_en?.toLowerCase().includes(searchLower) ||
+            gym.email?.toLowerCase().includes(searchLower) ||
+            gym.phone?.includes(debouncedSearchTerm) ||
+            gym.province?.name_th?.toLowerCase().includes(searchLower) ||
+            gym.province?.name_en?.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        // Status filtering as fallback
+        if (statusFilter !== 'all') {
+          filteredGyms = filteredGyms.filter((gym: Gym) => 
+            statusFilter === 'active' ? gym.is_active : !gym.is_active
+          );
+        }
+        
+        setGyms(filteredGyms);
+        
+        // Use the pagination from response, but ensure it makes sense
+        const totalFromResponse = response.pagination?.total || filteredGyms.length;
+        const pageSizeFromResponse = response.pagination?.pageSize || pagination.pageSize;
+        const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
+        
+        // If current page exceeds available pages, go to the last available page
+        const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
+        
+        setPagination(prev => ({ 
+          ...prev, 
+          page: validPage,
+          total: totalFromResponse,
+          pageSize: pageSizeFromResponse
+        }));
+        
+        // If we had to adjust the page, refetch with the correct page
+        if (validPage !== pagination.page && totalPages > 0) {
+          // Don't create infinite loop - only refetch if we haven't already adjusted
+          return;
+        }
+        
+        setError(null)
+      } catch (err) {
+        setError("Failed to fetch gyms")
+        toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
+      } finally {
         setIsLoading(false)
-      } else {
-        setIsRefetching(false)
+        setIsSearching(false)
       }
     }
-  }
+
+    fetchData()
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, statusFilter, sortField, sortBy])
+
+  // Only reset to page 1 when search term or filters change (not when just navigating pages)
+  const [previousSearchTerm, setPreviousSearchTerm] = useState("")
+  const [previousStatusFilter, setPreviousStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [previousSortField, setPreviousSortField] = useState<"created_at" | "updated_at">("created_at")
+  const [previousSortBy, setPreviousSortBy] = useState<"newest" | "oldest">("newest")
 
   useEffect(() => {
-    fetchGyms(true)
-  }, [])
+    // Check if search criteria actually changed
+    const searchChanged = debouncedSearchTerm !== previousSearchTerm
+    const statusChanged = statusFilter !== previousStatusFilter
+    const sortFieldChanged = sortField !== previousSortField
+    const sortByChanged = sortBy !== previousSortBy
+
+    if (searchChanged || statusChanged || sortFieldChanged || sortByChanged) {
+      // Only reset to page 1 if we're not already on page 1
+      if (pagination.page !== 1) {
+        setPagination(prev => ({ ...prev, page: 1 }))
+      }
+      
+      // Update previous values
+      setPreviousSearchTerm(debouncedSearchTerm)
+      setPreviousStatusFilter(statusFilter)
+      setPreviousSortField(sortField)
+      setPreviousSortBy(sortBy)
+    }
+  }, [debouncedSearchTerm, statusFilter, sortField, sortBy, previousSearchTerm, previousStatusFilter, previousSortField, previousSortBy, pagination.page])
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPagination(p => ({ ...p, page: newPage }));
+  }, []);
+
+  const handleFilterChange = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
+    setter(value);
+  }, []);
+
+  const refreshData = useCallback(() => {
+    // Force a re-fetch by updating a dependency
+    setPagination(prev => ({ ...prev }));
+  }, []);
 
   const closeEditDialog = () => {
     setEditingGym(null)
@@ -132,47 +278,12 @@ export default function GymsPage() {
     })
   }
 
-  const filteredAndSortedGyms = gyms
-    .filter((gym) => {
-      // Search filter
-      const gymName = `${gym.name_th} ${gym.name_en}`.trim()
-      const gymLocation = gym.province ? `${gym.province.name_th} ${gym.province.name_en}`.trim() : ""
-      const searchMatch = gymName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gymLocation.toLowerCase().includes(searchTerm.toLowerCase())
-
-      // Status filter
-      const statusMatch = statusFilter === "all" || 
-        (statusFilter === "active" && gym.is_active) ||
-        (statusFilter === "inactive" && !gym.is_active)
-
-      return searchMatch && statusMatch
-    })
-    .sort((a, b) => {
-      // Sort by selected field
-      let dateA: number, dateB: number
-      
-      if (sortField === "updated_at") {
-        dateA = new Date(a.updated_at || a.created_at || 0).getTime()
-        dateB = new Date(b.updated_at || b.created_at || 0).getTime()
-      } else {
-        dateA = new Date(a.created_at || 0).getTime()
-        dateB = new Date(b.created_at || 0).getTime()
-      }
-      
-      return sortBy === "newest" ? dateB - dateA : dateA - dateB
-    })
-
   const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     try {
       await gymsApi.create(gymData);
-      setIsAddDialogOpen(false); // Close the dialog immediately
+      setIsAddDialogOpen(false);
       toast.success("เพิ่มยิมสำเร็จ");
-
-      // Refresh the list after a short delay to allow the dialog to close.
-      setTimeout(() => {
-        fetchGyms();
-      }, 100);
-
+      refreshData();
     } catch (err) {
       toast.error("ไม่สามารถเพิ่มยิมได้");
     }
@@ -181,9 +292,7 @@ export default function GymsPage() {
   const savePartialGymData = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        // Only perform the API update. Do not update state here to prevent re-renders.
         const updatedGym = await gymsApi.update(editingGym.id, gymData)
-        // The success handler will be responsible for fetching new data.
         return updatedGym
       } catch (err) {
         throw err 
@@ -191,24 +300,19 @@ export default function GymsPage() {
     }
   }
 
-  // Special success handler for edit mode that closes dialog and refreshes
   const handleEditComplete = () => {
-    setEditingGym(null) // Close the dialog first
-    // Delay the data refresh to ensure dialog closes completely
-    setTimeout(() => {
-      fetchGyms() // Then refresh the data after dialog is closed
-    }, 100)
+    setEditingGym(null)
+    refreshData()
   }
 
-  // Success handler for step 1 saves - only refresh data, don't close dialog
   const handlePartialSaveSuccess = () => {
-    fetchGyms() // Refresh the data but keep dialog open
+    refreshData()
   }
 
   const handleDeleteGym = async (gymId: string) => {
     try {
       await gymsApi.delete(gymId)
-      setGyms(gyms.filter((gym) => gym.id !== gymId))
+      refreshData()
       toast.success("ลบยิมสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบยิมได้")
@@ -233,7 +337,7 @@ export default function GymsPage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading && gyms.length === 0) {
     return (
       <ProtectedRoute>
         <AdminLayout>
@@ -267,7 +371,7 @@ export default function GymsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-bold tracking-tight">จัดการยิมบนแพลตฟอร์ม</h1>
-                  {isRefetching && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                  {isLoading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
                 </div>
                 <p className="text-muted-foreground">คุณสามารถดู แก้ไข หรือเพิ่มยิมใหม่ รวมถึงจัดการรายละเอียดที่ใช้แสดงผลบนแพลตฟอร์ม</p>
               </div>
@@ -304,14 +408,17 @@ export default function GymsPage() {
             <div className="flex items-center space-x-2">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                {isSearching && (
+                  <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
                 <Input
                   placeholder="ค้นหายิม..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="กรองตามสถานะ" />
                 </SelectTrigger>
@@ -375,7 +482,13 @@ export default function GymsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedGyms.map((gym, index) => (
+                  {isLoading && gyms.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : gyms.map((gym, index) => (
                     <TableRow key={gym.id || `gym-${index}`}>
                       <TableCell className="font-mono text-sm">{truncateId(gym.id)}</TableCell>
                       <TableCell className="font-medium">
@@ -485,11 +598,19 @@ export default function GymsPage() {
               </Table>
             </div>
 
-            {filteredAndSortedGyms.length === 0 && (
+            {gyms.length === 0 && !isLoading && (
               <div className="text-center py-10">
                 <p className="text-muted-foreground">ไม่พบยิม</p>
               </div>
             )}
+            
+            <PaginationControls
+              page={pagination.page}
+              total={pagination.total}
+              pageSize={pagination.pageSize}
+              onPageChange={handlePageChange}
+            />
+
           </div>
         </TooltipProvider>
       </AdminLayout>

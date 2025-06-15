@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TrainerForm, type TrainerFormData } from "@/components/trainer-form"
@@ -33,17 +33,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Trainer, Province } from "@/lib/types"
 import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
+import { useDebounce } from "@/hooks/use-debounce"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
   const [gyms, setGyms] = useState<any[]>([])
   const [provinces, setProvinces] = useState<Province[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
   const [freelancerFilter, setFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
   const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
@@ -51,39 +53,156 @@ export default function TrainersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+  })
 
-  const fetchTrainers = async () => {
-    try {
-      setIsLoading(true)
-      
-      const [trainersData, gymsData, provincesData] = await Promise.all([
-        trainersApi.getAll(),
-        gymsApi.getAll(),
-        provincesApi.getAll()
-      ])
-      
-      // Handle both direct array and nested data.items structure
-      const trainersArray = trainersData.items || trainersData || []
-      const gymsArray = gymsData.items || gymsData || []
-      const provincesArray = provincesData.data || provincesData.items || provincesData || []
-      
-      setTrainers(trainersArray)
-      setGyms(gymsArray)
-      setProvinces(provincesArray)
-      setError(null)
-      
-    } catch (err) {
-      setError("Failed to fetch data")
-      toast.error("ไม่สามารถโหลดข้อมูลครูมวยได้: " + (err instanceof Error ? err.message : "Unknown error"))
-    } finally {
-      setIsLoading(false)
+  // Single useEffect to handle all data fetching
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Show search loading only if we're searching, not on initial load
+        if (debouncedSearchTerm) {
+          setIsSearching(true)
+        } else {
+          setIsLoading(true)
+        }
+        
+        const trainersParams = {
+          page: pagination.page, // Use the current page as-is
+          pageSize: pagination.pageSize,
+          searchTerm: debouncedSearchTerm,
+          is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
+          is_freelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
+          sortField: sortField,
+          sortBy: sortBy === 'newest' ? 'desc' : 'asc',
+        }
+        
+        const [trainersResponse, gymsResponse, provincesResponse] = await Promise.all([
+          trainersApi.getAll(trainersParams),
+          gymsApi.getAll({ pageSize: 100 }),
+          provincesApi.getAll()
+        ])
+        
+        let filteredTrainers = trainersResponse.data?.items || [];
+        
+        // Client-side filtering as fallback if backend search doesn't work properly
+        if (debouncedSearchTerm) {
+          const searchLower = debouncedSearchTerm.toLowerCase();
+          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
+            trainer.first_name_th?.toLowerCase().includes(searchLower) ||
+            trainer.last_name_th?.toLowerCase().includes(searchLower) ||
+            trainer.first_name_en?.toLowerCase().includes(searchLower) ||
+            trainer.last_name_en?.toLowerCase().includes(searchLower) ||
+            trainer.email?.toLowerCase().includes(searchLower) ||
+            trainer.phone?.includes(debouncedSearchTerm) ||
+            trainer.province?.name_th?.toLowerCase().includes(searchLower) ||
+            trainer.province?.name_en?.toLowerCase().includes(searchLower) ||
+            trainer.primaryGym?.name_th?.toLowerCase().includes(searchLower) ||
+            trainer.primaryGym?.name_en?.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        // Status filtering as fallback
+        if (statusFilter !== 'all') {
+          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
+            statusFilter === 'active' ? trainer.is_active : !trainer.is_active
+          );
+        }
+        
+        // Freelancer filtering as fallback
+        if (freelancerFilter !== 'all') {
+          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
+            freelancerFilter === 'freelancer' ? trainer.is_freelance : !trainer.is_freelance
+          );
+        }
+        
+        setTrainers(filteredTrainers);
+        
+        // Use the pagination from response, but ensure it makes sense
+        const totalFromResponse = trainersResponse.data?.total || filteredTrainers.length;
+        const pageSizeFromResponse = trainersResponse.data?.pageSize || pagination.pageSize;
+        const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
+        
+        // If current page exceeds available pages, go to the last available page
+        const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
+        
+        setPagination(prev => ({ 
+          ...prev, 
+          page: validPage,
+          total: totalFromResponse,
+          pageSize: pageSizeFromResponse
+        }));
+        
+        // If we had to adjust the page, refetch with the correct page
+        if (validPage !== pagination.page && totalPages > 0) {
+          // Don't create infinite loop - only refetch if we haven't already adjusted
+          return;
+        }
+        
+        setGyms(gymsResponse.data || []);
+        setProvinces(provincesResponse.data || []);
+        setError(null)
+        
+      } catch (err) {
+        setError("Failed to fetch data")
+        toast.error("ไม่สามารถโหลดข้อมูลครูมวยได้: " + (err instanceof Error ? err.message : "Unknown error"))
+      } finally {
+        setIsLoading(false)
+        setIsSearching(false)
+      }
     }
-  }
+
+    fetchData()
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, statusFilter, freelancerFilter, sortField, sortBy])
+
+  // Only reset to page 1 when search term or filters change (not when just navigating pages)
+  const [previousSearchTerm, setPreviousSearchTerm] = useState("")
+  const [previousStatusFilter, setPreviousStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [previousFreelancerFilter, setPreviousFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
+  const [previousSortField, setPreviousSortField] = useState<"created_at" | "updated_at">("created_at")
+  const [previousSortBy, setPreviousSortBy] = useState<"newest" | "oldest">("newest")
 
   useEffect(() => {
-    fetchTrainers()
-  }, [])
+    // Check if search criteria actually changed
+    const searchChanged = debouncedSearchTerm !== previousSearchTerm
+    const statusChanged = statusFilter !== previousStatusFilter
+    const freelancerChanged = freelancerFilter !== previousFreelancerFilter
+    const sortFieldChanged = sortField !== previousSortField
+    const sortByChanged = sortBy !== previousSortBy
+
+    if (searchChanged || statusChanged || freelancerChanged || sortFieldChanged || sortByChanged) {
+      // Only reset to page 1 if we're not already on page 1
+      if (pagination.page !== 1) {
+        setPagination(prev => ({ ...prev, page: 1 }))
+      }
+      
+      // Update previous values
+      setPreviousSearchTerm(debouncedSearchTerm)
+      setPreviousStatusFilter(statusFilter)
+      setPreviousFreelancerFilter(freelancerFilter)
+      setPreviousSortField(sortField)
+      setPreviousSortBy(sortBy)
+    }
+  }, [debouncedSearchTerm, statusFilter, freelancerFilter, sortField, sortBy, previousSearchTerm, previousStatusFilter, previousFreelancerFilter, previousSortField, previousSortBy, pagination.page])
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPagination(p => ({ ...p, page: newPage }));
+  }, []);
+
+  const handleFilterChange = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
+    setter(value);
+  }, []);
+
+  const refreshData = useCallback(() => {
+    // Force a re-fetch by updating a dependency
+    setPagination(prev => ({ ...prev }));
+  }, []);
 
   const closeEditDialog = () => {
     setEditingTrainer(null)
@@ -242,42 +361,6 @@ export default function TrainersPage() {
     return apiData
   }
 
-  const filteredAndSortedTrainers = trainers
-    .filter((trainer) => {
-      // Search filter
-      const fullNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
-      const fullNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
-      const searchMatch = fullNameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        fullNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        trainer.email?.toLowerCase().includes(searchTerm.toLowerCase())
-
-      // Status filter
-      const statusMatch = statusFilter === "all" || 
-        (statusFilter === "active" && trainer.is_active) ||
-        (statusFilter === "inactive" && !trainer.is_active)
-
-      // Freelancer filter
-      const freelancerMatch = freelancerFilter === "all" ||
-        (freelancerFilter === "freelancer" && trainer.is_freelance) ||
-        (freelancerFilter === "staff" && !trainer.is_freelance)
-
-      return searchMatch && statusMatch && freelancerMatch
-    })
-    .sort((a, b) => {
-      // Sort by selected field
-      let dateA: number, dateB: number
-      
-      if (sortField === "updated_at") {
-        dateA = new Date(a.updated_at || a.created_at || 0).getTime()
-        dateB = new Date(b.updated_at || b.created_at || 0).getTime()
-      } else {
-        dateA = new Date(a.created_at || 0).getTime()
-        dateB = new Date(b.created_at || 0).getTime()
-      }
-      
-      return sortBy === "newest" ? dateB - dateA : dateA - dateB
-    })
-
   const toggleCreatedSort = () => {
     if (sortField === "created_at") {
       setSortBy(sortBy === "newest" ? "oldest" : "newest")
@@ -302,7 +385,7 @@ export default function TrainersPage() {
       const newTrainer = await trainersApi.create(apiData)
       setIsAddDialogOpen(false)
       setEditingTrainer(null)
-      fetchTrainers();
+      refreshData();
       toast.success("เพิ่มครูมวยสำเร็จ")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
@@ -315,7 +398,7 @@ export default function TrainersPage() {
       try {
         const apiData = transformFormDataToApi(formData)
         await trainersApi.update(editingTrainer.id, apiData)
-        fetchTrainers();
+        refreshData();
         setEditingTrainer(null)
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
@@ -340,7 +423,7 @@ export default function TrainersPage() {
   const handleDeleteTrainer = async (trainerId: string) => {
     try {
       await trainersApi.delete(trainerId)
-      setTrainers(trainers.filter((trainer) => trainer.id !== trainerId))
+      refreshData() // Refresh data
       toast.success("ลบครูมวยสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบครูมวยได้")
@@ -429,14 +512,17 @@ export default function TrainersPage() {
             <div className="flex items-center space-x-2">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                {isSearching && (
+                  <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
                 <Input
                   placeholder="ค้นหาครูมวย..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
                 />
               </div>
-              <Select value={freelancerFilter} onValueChange={(value: "all" | "freelancer" | "staff") => setFreelancerFilter(value)}>
+              <Select value={freelancerFilter} onValueChange={handleFilterChange(setFreelancerFilter)}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="กรองตามประเภท" />
                 </SelectTrigger>
@@ -446,7 +532,7 @@ export default function TrainersPage() {
                   <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="กรองตามสถานะ" />
                 </SelectTrigger>
@@ -508,7 +594,7 @@ export default function TrainersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedTrainers.map((trainer, index) => {
+                  {trainers.map((trainer, index) => {
                     const displayNameTh = `${trainer.first_name_th} ${trainer.last_name_th}`.trim()
                     const displayNameEn = `${trainer.first_name_en} ${trainer.last_name_en}`.trim()
 
@@ -624,14 +710,75 @@ export default function TrainersPage() {
               </Table>
             </div>
 
-            {filteredAndSortedTrainers.length === 0 && (
+            {trainers.length === 0 && !isLoading && (
               <div className="text-center py-10">
                 <p className="text-muted-foreground">ไม่พบครูมวย</p>
               </div>
             )}
+
+            <PaginationControls
+              page={pagination.page}
+              total={pagination.total}
+              pageSize={pagination.pageSize}
+              onPageChange={handlePageChange}
+            />
+
           </div>
         </TooltipProvider>
       </AdminLayout>
     </ProtectedRoute>
+  )
+}
+
+function PaginationControls({ page, total, pageSize, onPageChange }: { page: number, total: number, pageSize: number, onPageChange: (page: number) => void }) {
+  const totalPages = Math.ceil(total / pageSize)
+
+  // Always show pagination if there are more than pageSize items, regardless of what backend says
+  const shouldShowPagination = total > pageSize || totalPages > 1
+
+  if (!shouldShowPagination) {
+    return null
+  }
+
+  return (
+    <div className="flex items-center justify-between pt-4">
+      <div className="text-sm text-muted-foreground">
+        หน้า {page} จาก {totalPages} (ทั้งหมด {total} รายการ)
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(1)}
+          disabled={page === 1}
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   )
 } 

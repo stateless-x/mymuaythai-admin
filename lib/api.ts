@@ -41,14 +41,17 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 // Gyms API
 export const gymsApi = {
   // Get all gyms
-  getAll: async () => {
-    const params = new URLSearchParams({  
-      includeInactive: "true",
-      page: "1",
-      pageSize: "20",
-    })
-    const response = await apiRequest(`/api/gyms?${params.toString()}`);
-    return response.data || response;
+  getAll: async (params?: Record<string, any>) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value))
+        }
+      })
+    }
+    const response = await apiRequest(`/api/gyms?${query.toString()}`);
+    return response;
   },
   
   // Get gym by ID
@@ -80,15 +83,17 @@ export const gymsApi = {
 // Trainers API
 export const trainersApi = {
   // Get all trainers
-  getAll: async () => {
-    const params = new URLSearchParams({
-      includeInactive: "true",
-      includeClasses: "true",
-      page: "1",
-      pageSize: "20",
-    })
-    const response = await apiRequest(`/api/trainers?${params.toString()}`);
-    return response.data || response; // Handle potential data property
+  getAll: async (params?: Record<string, any>) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value))
+        }
+      })
+    }
+    const response = await apiRequest(`/api/trainers?${query.toString()}`);
+    return response;
   },
   
   // Get trainer by ID
