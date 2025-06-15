@@ -309,9 +309,8 @@ export default function TrainersPage() {
     if (editingTrainer) {
       try {
         const apiData = transformFormDataToApi(formData)
-        const updatedTrainer = await trainersApi.update(editingTrainer.id, apiData)
-        
-        setTrainers(prev => prev.map(trainer => trainer.id === editingTrainer.id ? updatedTrainer : trainer))
+        await trainersApi.update(editingTrainer.id, apiData)
+        fetchTrainers();
         setEditingTrainer(null)
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
