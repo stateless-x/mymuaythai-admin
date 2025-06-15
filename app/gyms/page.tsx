@@ -164,30 +164,21 @@ export default function GymsPage() {
 
   const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     try {
-      const newGym = await gymsApi.create(gymData)
-      setIsAddDialogOpen(false)
-      setEditingGym(null)
-      setGyms(prev => [newGym, ...prev])
-      toast.success("เพิ่มยิมสำเร็จ")
+      await gymsApi.create(gymData);
+      setIsAddDialogOpen(false); // Close the dialog immediately
+      toast.success("เพิ่มยิมสำเร็จ");
+
+      // Refresh the list after a short delay to allow the dialog to close.
+      setTimeout(() => {
+        fetchGyms();
+      }, 100);
+
     } catch (err) {
-      toast.error("ไม่สามารถเพิ่มยิมได้")
+      toast.error("ไม่สามารถเพิ่มยิมได้");
     }
-  }
+  };
 
-  const handleEditGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
-    if (editingGym) {
-      try {
-        const updatedGym = await gymsApi.update(editingGym.id, gymData)
-        setGyms(prev => prev.map(gym => gym.id === editingGym.id ? updatedGym : gym))
-        setEditingGym(null)
-        toast.success("แก้ไขยิมสำเร็จ")
-      } catch (err) {
-        toast.error("ไม่สามารถแก้ไขยิมได้")
-      }
-    }
-  }
-
-  const handleSaveGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
+  const savePartialGymData = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
         // Only perform the API update. Do not update state here to prevent re-renders.
@@ -201,16 +192,16 @@ export default function GymsPage() {
   }
 
   // Special success handler for edit mode that closes dialog and refreshes
-  const handleEditSuccess = () => {
+  const handleEditComplete = () => {
     setEditingGym(null) // Close the dialog first
     // Delay the data refresh to ensure dialog closes completely
     setTimeout(() => {
       fetchGyms() // Then refresh the data after dialog is closed
-    }, 1000)
+    }, 100)
   }
 
   // Success handler for step 1 saves - only refresh data, don't close dialog
-  const handleStep1Success = () => {
+  const handlePartialSaveSuccess = () => {
     fetchGyms() // Refresh the data but keep dialog open
   }
 
@@ -304,7 +295,6 @@ export default function GymsPage() {
                         setIsAddDialogOpen(false)
                         setEditingGym(null)
                       }}
-                      onSuccess={fetchGyms}
                     />
                   </div>
                 </DialogContent>
@@ -442,7 +432,6 @@ export default function GymsPage() {
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditingGym(gym)
-                                console.log("Editing gym:", gym)
                               }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -460,11 +449,10 @@ export default function GymsPage() {
                               <div className="flex-1 overflow-y-auto px-6 pb-6">
                                 <GymForm 
                                   gym={editingGym || undefined} 
-                                  onSubmit={handleEditGym} 
                                   onCancel={() => closeEditDialog()}
-                                  onSaveOnly={handleSaveGym}
-                                  onSuccess={handleEditSuccess}
-                                  onStep1Success={handleStep1Success}
+                                  onSavePartial={savePartialGymData}
+                                  onComplete={handleEditComplete}
+                                  onSavePartialSuccess={handlePartialSaveSuccess}
                                 />
                               </div>
                             </DialogContent>

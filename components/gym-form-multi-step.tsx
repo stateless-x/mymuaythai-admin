@@ -7,14 +7,14 @@ import type { Gym } from "@/lib/types"
 
 interface GymFormMultiStepProps {
   gym?: Gym
-  onSubmit: (gym: Omit<Gym, "id" | "joinedDate">) => void
+  onSubmit?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
   onCancel: () => void
-  onSaveOnly?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
-  onSuccess?: () => void
-  onStep1Success?: () => void
+  onSavePartial?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
+  onComplete?: () => void
+  onSavePartialSuccess?: () => void
 }
 
-export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSuccess, onStep1Success }: GymFormMultiStepProps) {
+export function GymFormMultiStep({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess }: GymFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [step1Data, setStep1Data] = useState<Partial<Gym>>({})
   const [initialGymId, setInitialGymId] = useState<string | undefined>(gym?.id)
@@ -57,14 +57,14 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSucces
   }, []);
 
   // Save function that either saves existing gym or does nothing for new gyms
-  const handleSave = async (data: Partial<Gym>) => {
-    if (!gym || !onSaveOnly) {
+  const handlePartialSave = async (data: Partial<Gym>) => {
+    if (!gym || !onSavePartial) {
       return
     }
     
     setIsSaving(true);
     try {
-      await onSaveOnly(data as Omit<Gym, "id" | "joinedDate">)
+      await onSavePartial(data as Omit<Gym, "id" | "joinedDate">)
     } finally {
       setIsSaving(false);
     }
@@ -80,23 +80,19 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSucces
   }
 
   const handleFinalSubmit = (finalData: Omit<Gym, "id" | "joinedDate">) => {
-    onSubmit(finalData)
+    onSubmit?.(finalData)
   }
 
-  // Enhanced onSuccess wrapper that prevents immediate reset
-  const handleSuccess = () => {
-    setIsSaving(true);
-    onSuccess?.();
-    // Clear saving state after a short delay
-    setTimeout(() => {
-      setIsSaving(false);
-    }, 200);
+  // Wrapper for the final completion action
+  const handleCompleteWrapper = () => {
+    // No need to set saving state here, as the dialog will close immediately.
+    onComplete?.();
   };
 
-  // Step 1 specific success handler
-  const handleStep1SuccessWrapper = () => {
+  // Wrapper for partial save success action
+  const handleSavePartialSuccessWrapper = () => {
     setIsSaving(true);
-    onStep1Success?.();
+    onSavePartialSuccess?.();
     // Clear saving state after a short delay
     setTimeout(() => {
       setIsSaving(false);
@@ -108,8 +104,8 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSucces
       gym={gym} 
       onNext={handleStep1Next} 
       onCancel={onCancel} 
-      onSave={handleSave}
-      onSuccess={handleStep1SuccessWrapper}
+      onSave={handlePartialSave}
+      onSuccess={handleSavePartialSuccessWrapper}
     />
   }
 
@@ -119,9 +115,9 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSaveOnly, onSucces
       initialData={step1Data}
       onSubmit={handleFinalSubmit}
       onBack={handleStep2Back}
-      onSave={handleSave}
+      onSave={handlePartialSave}
       onCancel={onCancel}
-      onSuccess={onSuccess}
+      onSuccess={handleCompleteWrapper}
     />
   )
 }

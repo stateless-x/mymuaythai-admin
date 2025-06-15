@@ -96,19 +96,11 @@ export function GymFormStep2({
     const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
     const completeTrainerIds = completeTrainerList.map(t => t.id);
     
-    console.log("=== TRAINER UPDATES ===");
-    console.log("Complete trainer list from selector:", completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Original trainer IDs:", originalTrainers.map(t => t.id));
-    console.log("Complete trainer IDs:", completeTrainerIds);
-    
     // Compare complete list with original to determine actual additions and removals
     const originalTrainerIds = originalTrainers.map(t => t.id);
     
     const addTrainers = completeTrainerIds.filter(id => !originalTrainerIds.includes(id));
     const removeTrainers = originalTrainerIds.filter(id => !completeTrainerIds.includes(id));
-
-    console.log("Trainers to add:", addTrainers);
-    console.log("Trainers to remove:", removeTrainers);
 
     // Only make API calls if there are changes
     if (addTrainers.length > 0 || removeTrainers.length > 0) {
@@ -156,19 +148,15 @@ export function GymFormStep2({
         });
         setOriginalTrainers(completeTrainerList);
         
-        // For edit mode: trigger refetch to update the list
-        onSuccess?.(); // Re-enable refetch after save
+        // For edit mode: trigger the completion callback
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
-        // Create logic - for create mode, close dialog after creation
-        onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
-        const { toast } = await import("sonner");
-        toast.success("สร้างยิมสำเร็จ", {
-          description: "ยิมใหม่ถูกสร้างเรียบร้อยแล้ว",
-        });
-        
-        // For create mode: close dialog and trigger refetch
-        onCancel(); // Close form
-        onSuccess?.(); // Trigger refetch
+        // Create logic - for create mode, let the onSubmit handler manage everything
+        if (onSubmit) {
+          await onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
+        }
       }
     } catch (error) {
       console.error("Error submitting form:", error);

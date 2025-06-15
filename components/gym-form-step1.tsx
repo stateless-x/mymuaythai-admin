@@ -25,7 +25,7 @@ interface GymFormStep1Props {
   onNext: (data: Partial<Gym>) => void
   onCancel: () => void
   onSave: (data: Partial<Gym>) => Promise<void>
-  onSuccess?: () => void
+  onSuccess: () => void
 }
 
 export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFormStep1Props) {
@@ -142,7 +142,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
     }
     
     if (!validateForm()) {
-      console.log("Validation failed, cannot proceed")
       return
     }
 
@@ -150,18 +149,14 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
     try {
       const cleanedData = cleanFormDataForAPI(formData)
       
-      // When moving to the next step, we only need to pass the data forward.
-      // The final submission will handle the API call.
-      // In edit mode, onSave was causing the form to close prematurely.
-      // if (gym) {
-      //   await onSave(cleanedData)
-      // }
+      // When in edit mode, save the data from step 1 before proceeding.
+      if (gym) {
+        await onSave(cleanedData)
+      }
       
       onNext(cleanedData)
     } catch (error) {
       console.error("Error proceeding to next step:", error)
-      // It's better not to show a toast here as it might be confusing.
-      // The final submit will have its own error handling.
     } finally {
       setIsSubmitting(false)
     }
@@ -184,7 +179,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
       toast.success("บันทึกข้อมูลสำเร็จ", {
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
       })
-      onSuccess?.()
+      onSuccess()
     } catch (error) {
       console.error("Error saving:", error)
       const { toast } = await import('sonner')
