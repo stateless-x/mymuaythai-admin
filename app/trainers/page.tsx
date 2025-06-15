@@ -55,15 +55,11 @@ export default function TrainersPage() {
   const fetchTrainers = async () => {
     try {
       setIsLoading(true)
-      console.log("Fetching trainers from API...")
       
       const [trainersData, gymsData] = await Promise.all([
         trainersApi.getAll(),
         gymsApi.getAll()
       ])
-      
-      console.log("Trainers API response:", trainersData)
-      console.log("Gyms API response:", gymsData)
       
       // Handle both direct array and nested data.items structure
       const trainersArray = trainersData.items || trainersData || []
@@ -73,10 +69,8 @@ export default function TrainersPage() {
       setGyms(gymsArray)
       setError(null)
       
-      console.log("Successfully loaded:", trainersArray.length, "trainers and", gymsArray.length, "gyms")
     } catch (err) {
       setError("Failed to fetch data")
-      console.error("Error fetching trainers/gyms:", err)
       toast.error("ไม่สามารถโหลดข้อมูลครูมวยได้: " + (err instanceof Error ? err.message : "Unknown error"))
     } finally {
       setIsLoading(false)
@@ -89,7 +83,6 @@ export default function TrainersPage() {
 
   const closeEditDialog = () => {
     setEditingTrainer(null)
-    fetchTrainers()
   }
 
   const formatDate = (dateString: string | Date) => {
@@ -300,15 +293,13 @@ export default function TrainersPage() {
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
       const apiData = transformFormDataToApi(formData)
-      const result = await trainersApi.create(apiData)
-      console.log("Trainer created successfully:", result)
+      const newTrainer = await trainersApi.create(apiData)
       
       setIsAddDialogOpen(false)
       setEditingTrainer(null)
-      await fetchTrainers()
+      setTrainers(prev => [newTrainer, ...prev])
       toast.success("เพิ่มครูมวยสำเร็จ")
     } catch (err) {
-      console.error("Error adding trainer:", err)
       const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
       toast.error(errorMessage)
     }
@@ -318,14 +309,12 @@ export default function TrainersPage() {
     if (editingTrainer) {
       try {
         const apiData = transformFormDataToApi(formData)
+        const updatedTrainer = await trainersApi.update(editingTrainer.id, apiData)
         
-        const result = await trainersApi.update(editingTrainer.id, apiData)
-        console.log("Trainer updated successfully:", result)
-        
-        closeEditDialog()
+        setTrainers(prev => prev.map(trainer => trainer.id === editingTrainer.id ? updatedTrainer : trainer))
+        setEditingTrainer(null)
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
-        console.error("Error updating trainer:", err)
         const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
         toast.error(errorMessage)
       }
@@ -335,9 +324,10 @@ export default function TrainersPage() {
   const handleSaveTrainer = async (trainerData: Omit<Trainer, "id" | "created_at">) => {
     if (editingTrainer) {
       try {
-        await trainersApi.update(editingTrainer.id, trainerData)        
+        const updatedTrainer = await trainersApi.update(editingTrainer.id, trainerData)
+        setTrainers(prev => prev.map(trainer => trainer.id === editingTrainer.id ? updatedTrainer : trainer))
+        return updatedTrainer
       } catch (err) {
-        console.error("Error saving trainer:", err)
         throw err 
       }
     }
@@ -349,7 +339,6 @@ export default function TrainersPage() {
       setTrainers(trainers.filter((trainer) => trainer.id !== trainerId))
       toast.success("ลบครูมวยสำเร็จ")
     } catch (err) {
-      console.error("Error deleting trainer:", err)
       toast.error("ไม่สามารถลบครูมวยได้")
     }
   }

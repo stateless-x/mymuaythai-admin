@@ -58,7 +58,6 @@ export default function GymsPage() {
       setError(null)
     } catch (err) {
       setError("Failed to fetch gyms")
-      console.error("Error fetching gyms:", err)
       toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
     } finally {
       setIsLoading(false)
@@ -71,7 +70,6 @@ export default function GymsPage() {
 
   const closeEditDialog = () => {
     setEditingGym(null)
-    fetchGyms()
   }
 
   const formatDate = (dateString: string | Date) => {
@@ -151,10 +149,9 @@ export default function GymsPage() {
       const newGym = await gymsApi.create(gymData)
       setIsAddDialogOpen(false)
       setEditingGym(null)
-      await fetchGyms()
+      setGyms(prev => [newGym, ...prev])
       toast.success("เพิ่มยิมสำเร็จ")
     } catch (err) {
-      console.error("Error adding gym:", err)
       toast.error("ไม่สามารถเพิ่มยิมได้")
     }
   }
@@ -162,11 +159,11 @@ export default function GymsPage() {
   const handleEditGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        await gymsApi.update(editingGym.id, gymData)
-        closeEditDialog()
+        const updatedGym = await gymsApi.update(editingGym.id, gymData)
+        setGyms(prev => prev.map(gym => gym.id === editingGym.id ? updatedGym : gym))
+        setEditingGym(null)
         toast.success("แก้ไขยิมสำเร็จ")
       } catch (err) {
-        console.error("Error updating gym:", err)
         toast.error("ไม่สามารถแก้ไขยิมได้")
       }
     }
@@ -175,9 +172,10 @@ export default function GymsPage() {
   const handleSaveGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        await gymsApi.update(editingGym.id, gymData)        
+        const updatedGym = await gymsApi.update(editingGym.id, gymData)
+        setGyms(prev => prev.map(gym => gym.id === editingGym.id ? updatedGym : gym))
+        return updatedGym
       } catch (err) {
-        console.error("Error saving gym:", err)
         throw err 
       }
     }
@@ -189,7 +187,6 @@ export default function GymsPage() {
       setGyms(gyms.filter((gym) => gym.id !== gymId))
       toast.success("ลบยิมสำเร็จ")
     } catch (err) {
-      console.error("Error deleting gym:", err)
       toast.error("ไม่สามารถลบยิมได้")
     }
   }

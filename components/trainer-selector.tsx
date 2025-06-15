@@ -160,40 +160,21 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   // Fetch existing gym trainers if gymId is provided - only once per gymId
   useEffect(() => {
-    console.log("useEffect triggered for gymId:", gymId, "existing trainers:", existingGymTrainers.length);
-    console.log("Last successful update:", lastSuccessfulUpdate);
-    
     // Don't fetch if we just had a successful update (within last 30 seconds)
     const timeSinceLastUpdate = Date.now() - lastSuccessfulUpdate;
     const skipFetchAfterUpdate = timeSinceLastUpdate < 30000; // 30 seconds
     
     if (gymId && existingGymTrainers.length === 0 && !skipFetchAfterUpdate) {
-      console.log("Fetching existing trainers for new gymId:", gymId);
       fetchExistingGymTrainers(gymId);
-    } else if (gymId && existingGymTrainers.length > 0) {
-      console.log("Skipping fetch - already have existing trainers:", existingGymTrainers.map(t => t.first_name_th));
-    } else if (!gymId) {
-      console.log("No gymId provided, skipping fetch");
-    } else if (skipFetchAfterUpdate) {
-      console.log("Skipping fetch - just had successful update, waiting 30 seconds");
     }
   }, [gymId]); // Only depend on gymId, not existingGymTrainers to avoid loops
 
   // Auto-refresh existing trainers when triggerRefresh changes
   useEffect(() => {
     if (triggerRefresh && triggerRefresh > 0 && gymId) {
-      console.log("Trigger refresh detected:", triggerRefresh, "- refetching existing trainers");
       fetchExistingGymTrainers(gymId);
     }
   }, [triggerRefresh, gymId]);
-
-  // Debug: Monitor changes to existing gym trainers
-  useEffect(() => {
-    console.log("existingGymTrainers changed:", existingGymTrainers.length, "trainers");
-    if (existingGymTrainers.length === 0 && gymId) {
-      console.warn("Existing gym trainers was cleared unexpectedly for gymId:", gymId);
-    }
-  }, [existingGymTrainers, gymId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -209,103 +190,39 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   const fetchExistingGymTrainers = async (gymId: string) => {
     if (!gymId) {
-      console.log("No gymId provided to fetchExistingGymTrainers");
       return;
     }
     
-    console.log("=== FETCHING EXISTING GYM TRAINERS ===");
-    console.log("GymId:", gymId);
-    console.log("Current existing trainers before fetch:", existingGymTrainers.length);
-    
     setIsLoadingExisting(true);
     try {
-      // Try multiple approaches to get ALL trainers for this gym
+      const params = new URLSearchParams({
+        gymId: gymId,
+        includeInactive: "false",
+        page: "1",
+        pageSize: "50",
+        includeAssigned: "true"
+      });
       
-      // Approach 1: Try to get gym details with associated trainers
-      let gymTrainers: Trainer[] = [];
+      const response = await apiRequest(`/api/trainers?${params.toString()}`);
       
-      try {
-        console.log("=== TRYING APPROACH 1: GET GYM WITH TRAINERS ===");
-        const gymResponse = await apiRequest(`/api/gyms/${gymId}`);
-        console.log("Gym API Response:", JSON.stringify(gymResponse, null, 2));
-        
-        if (gymResponse.data?.associatedTrainers && Array.isArray(gymResponse.data.associatedTrainers)) {
-          const associatedTrainers = gymResponse.data.associatedTrainers.map((trainer: any) => convertBackendTrainer(trainer));
-          console.log("Found trainers from gym endpoint:", associatedTrainers.map((t: Trainer) => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-          gymTrainers = associatedTrainers;
-        }
-      } catch (gymError) {
-        console.log("Gym endpoint failed, trying trainers endpoint:", gymError);
+      // Handle different possible response structures
+      let backendTrainers: BackendTrainer[] = [];
+      
+      if (response.data?.items && Array.isArray(response.data.items)) {
+        backendTrainers = response.data.items;
+      } else if (response.trainers && Array.isArray(response.trainers)) {
+        backendTrainers = response.trainers;
+      } else if (response.data?.trainers && Array.isArray(response.data.trainers)) {
+        backendTrainers = response.data.trainers;
       }
-      
-      // Approach 2: If gym endpoint didn't work, try trainers endpoint
-      if (gymTrainers.length === 0) {
-        console.log("=== TRYING APPROACH 2: GET TRAINERS BY GYM ID ===");
-        const params = new URLSearchParams({
-          gymId: gymId,
-          includeInactive: "false",
-          page: "1",
-          pageSize: "1000", // Increased to ensure we get all trainers
-          includeAssigned: "true" // Make sure we include assigned trainers
-        });
-        
-        console.log("Fetching with params:", params.toString());
-        const response = await apiRequest(`/api/trainers?${params.toString()}`);
-        console.log("=== FULL API RESPONSE ===");
-        console.log("Full API Response:", JSON.stringify(response, null, 2));
-        
-        let backendTrainers: BackendTrainer[] = [];
-        
-        if (response.data?.items && Array.isArray(response.data.items)) {
-          backendTrainers = response.data.items;
-        } else if (response.trainers && Array.isArray(response.trainers)) {
-          backendTrainers = response.trainers;
-        } else if (response.data?.trainers && Array.isArray(response.data.trainers)) {
-          backendTrainers = response.data.trainers;
-        }
 
-        console.log("=== BACKEND TRAINERS ANALYSIS ===");
-        console.log("Backend trainers found:", backendTrainers.length);
-        console.log("All backend trainers:", backendTrainers.map((t: BackendTrainer) => ({
-          name: `${t.first_name_th} ${t.last_name_th}`,
-          id: t.id,
-          gym_id: t.gym_id,
-          is_active: t.is_active,
-          is_freelance: t.is_freelance
-        })));
-
-        // Filter to only include trainers that are actually assigned to THIS gym
-        const gymSpecificTrainers = backendTrainers.filter(trainer => {
-          const isAssignedToThisGym = trainer.gym_id === gymId;
-          console.log(`Trainer ${trainer.first_name_th} ${trainer.last_name_th} (${trainer.id}):`, {
-            gym_id: trainer.gym_id,
-            target_gym_id: gymId,
-            isAssignedToThisGym,
-            is_active: trainer.is_active,
-            is_freelance: trainer.is_freelance
-          });
-          return isAssignedToThisGym;
-        });
-        
-        console.log("=== GYM-SPECIFIC TRAINERS ===");
-        console.log("Gym-specific trainers:", gymSpecificTrainers.length);
-        console.log("Gym-specific trainer details:", gymSpecificTrainers.map((t: BackendTrainer) => ({
-          name: `${t.first_name_th} ${t.last_name_th}`,
-          id: t.id,
-          gym_id: t.gym_id
-        })));
-
-        gymTrainers = gymSpecificTrainers.map(convertBackendTrainer);
-      }
-      
-      console.log("=== FINAL RESULT ===");
-      console.log("Setting existing gym trainers to:", gymTrainers.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
+      // Filter and convert to frontend format
+      const gymTrainers = backendTrainers
+        .filter(trainer => trainer.gym_id === gymId)
+        .map(convertBackendTrainer);
       
       setExistingGymTrainers(gymTrainers);
-      console.log("=== FETCH EXISTING TRAINERS COMPLETE ===");
     } catch (error) {
-      console.error("Error fetching existing gym trainers:", error);
-      console.log("Keeping existing trainers due to error");
       // Don't clear existing trainers on error - keep what we have
     } finally {
       setIsLoadingExisting(false);
@@ -320,19 +237,15 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
     }
 
     try {
-      // Fetch trainers with specific criteria: active, no gym, not freelancer
+      // Optimized: Use unassignedOnly parameter instead of filtering client-side
       const params = new URLSearchParams({
         page: page.toString(),
         pageSize: pageSize.toString(),
-        includeInactive: "false", // Only active trainers
-        isFreelance: "false", // Not freelancers
-        includeClasses: "true"
+        includeInactive: "false",
+        unassignedOnly: "true" // Use backend filtering
       });
       
-      console.log("Fetching trainers with params:", params.toString());
-      
       const response = await apiRequest(`/api/trainers?${params.toString()}`);
-      console.log("Raw API response:", response);
       
       // Handle different possible response structures
       let backendTrainers: BackendTrainer[] = [];
@@ -355,18 +268,8 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
         total = response.length;
       }
 
-      console.log("Backend trainers found:", backendTrainers);
-
-      // Filter trainers to only include those without gym assignment and convert to frontend format
-      const unassignedTrainers = backendTrainers
-        .filter((trainer: BackendTrainer) => 
-          trainer.gym_id === null && // No gym assigned (checking gym_id directly)
-          trainer.is_active === true && // Is active
-          trainer.is_freelance === false // Not freelancer
-        )
-        .map(convertBackendTrainer);
-
-      console.log("Filtered unassigned trainers:", unassignedTrainers);
+      // Convert to frontend format (backend already filtered)
+      const unassignedTrainers = backendTrainers.map(convertBackendTrainer);
 
       if (reset) {
         setAvailableTrainers(unassignedTrainers);
@@ -376,14 +279,13 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
         setCurrentPage(page);
       }
 
-      setTotalCount(unassignedTrainers.length);
+      setTotalCount(total);
       
-      // Check if there are more pages based on original response
+      // Check if there are more pages
       const totalPages = Math.ceil(total / pageSize);
       setHasNextPage(page < totalPages);
 
     } catch (error) {
-      console.error("Error fetching trainers:", error);
       if (reset) {
         setAvailableTrainers([]);
       }
@@ -405,24 +307,19 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
   });
 
   const handleAddTrainer = (trainer: Trainer) => {
-    console.log("Adding trainer:", trainer.first_name_th, "Current existing trainers:", existingGymTrainers.length);
-    
     if (!selectedTrainers.find((t) => t.id === trainer.id)) {
       const newSelectedTrainers = [...selectedTrainers, trainer];
-      console.log("New selected trainers:", newSelectedTrainers.length);
       onTrainersChange(newSelectedTrainers);
       setIsDropdownOpen(false);
     }
   };
 
   const handleRemoveTrainer = (trainerId: string) => {
-    console.log("Removing trainer from selected:", trainerId, "Current existing trainers:", existingGymTrainers.length);
     const updatedTrainers = selectedTrainers.filter((t) => t.id !== trainerId);
     onTrainersChange(updatedTrainers);
   };
 
   const handleMarkTrainerForRemoval = (trainerId: string) => {
-    console.log("Marking trainer for removal:", trainerId, "Current existing trainers:", existingGymTrainers.length);
     if (onTrainersToRemoveChange) {
       const updatedRemovalList = trainersToRemove.includes(trainerId)
         ? trainersToRemove.filter(id => id !== trainerId) // Unmark for removal
@@ -432,40 +329,30 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
   };
 
   const handleRemoveFromExistingList = (trainerId: string) => {
-    console.log("Removing trainer from existing list:", trainerId, "Current existing trainers:", existingGymTrainers.length);
     // Remove specific trainer from existing gym trainers list immediately
     setExistingGymTrainers(prevTrainers => {
       const newTrainers = prevTrainers.filter(trainer => trainer.id !== trainerId);
-      console.log("New existing trainers after removal:", newTrainers.length);
       return newTrainers;
     });
   };
 
   // Function to update existing trainers after API response
   const updateExistingTrainersFromAPI = (apiTrainers: Trainer[]) => {
-    console.log("Updating existing trainers from API:", apiTrainers.length, "new trainers");
-    console.log("Current existing trainers before merge:", existingGymTrainers.length);
-    
     setExistingGymTrainers(prevTrainers => {
       // Create a map of existing trainers by ID for quick lookup
       const existingTrainersMap = new Map(prevTrainers.map(t => [t.id, t]));
-      console.log("Existing trainers before merge:", Array.from(existingTrainersMap.keys()));
       
       // Add new trainers from API, avoiding duplicates
       apiTrainers.forEach((trainer: Trainer) => {
         if (!existingTrainersMap.has(trainer.id)) {
-          console.log("Adding new trainer to existing list:", trainer.first_name_th);
           existingTrainersMap.set(trainer.id, trainer);
         } else {
-          console.log("Trainer already exists, updating:", trainer.first_name_th);
           existingTrainersMap.set(trainer.id, trainer); // Update existing trainer data
         }
       });
       
       // Convert back to array
       const mergedTrainers = Array.from(existingTrainersMap.values());
-      console.log("Final merged trainers:", mergedTrainers.length, "total trainers");
-      console.log("Merged trainer names:", mergedTrainers.map((t: Trainer) => t.first_name_th));
       
       return mergedTrainers;
     });
@@ -473,22 +360,14 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   // Function to handle successful trainer updates (call this after saving)
   const handleTrainerUpdateSuccess = (response: any) => {
-    console.log("=== HANDLING TRAINER UPDATE SUCCESS ===");
-    console.log("API Response:", response);
-    console.log("Current existing trainers before update:", existingGymTrainers.length);
-    console.log("Current existing trainer names:", existingGymTrainers.map((t: Trainer) => t.first_name_th));
-    
     if (response?.data?.associatedTrainers && Array.isArray(response.data.associatedTrainers)) {
       const apiTrainers = response.data.associatedTrainers.map((trainer: any) => convertBackendTrainer(trainer));
-      console.log("API returned trainers (newly added):", apiTrainers.map((t: Trainer) => `${t.first_name_th} ${t.last_name_th}`));
       
       // CRITICAL FIX: Don't replace existing trainers, just add new ones
       setExistingGymTrainers(prevTrainers => {
-        console.log("Previous trainers (existing):", prevTrainers.map((t: Trainer) => t.first_name_th));
         
         // Start with existing trainers that are NOT marked for removal
         const keepExistingTrainers = prevTrainers.filter((trainer: Trainer) => !trainersToRemove.includes(trainer.id));
-        console.log("Keeping existing trainers (not marked for removal):", keepExistingTrainers.map((t: Trainer) => t.first_name_th));
         
         // Create a map for quick lookup - START with existing trainers
         const allTrainersMap = new Map(keepExistingTrainers.map(t => [t.id, t]));
@@ -497,46 +376,32 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
         // This handles the case where API response contains newly added trainers
         apiTrainers.forEach((trainer: Trainer) => {
           if (!allTrainersMap.has(trainer.id)) {
-            console.log("Adding newly added trainer from API:", trainer.first_name_th);
             allTrainersMap.set(trainer.id, trainer);
           } else {
-            console.log("Trainer from API already exists, updating data:", trainer.first_name_th);  
             allTrainersMap.set(trainer.id, trainer); // Update with latest data
           }
         });
         
         const finalTrainers = Array.from(allTrainersMap.values());
-        console.log("Final trainer list after merge:", finalTrainers.map((t: Trainer) => t.first_name_th));
-        console.log("Total trainers after update:", finalTrainers.length);
         
         return finalTrainers;
       });
       
       // Clear selected trainers since they've been successfully added
-      console.log("Clearing selected trainers:", selectedTrainers.length);
       onTrainersChange([]);
       
       // Clear trainers marked for removal since the update was successful
       if (onTrainersToRemoveChange && trainersToRemove.length > 0) {
-        console.log("Clearing trainers marked for removal:", trainersToRemove.length);
         onTrainersToRemoveChange([]);
       }
       
       // Mark the successful update timestamp to prevent unnecessary refetches
       setLastSuccessfulUpdate(Date.now());
-      
-      console.log("=== TRAINER UPDATE SUCCESS COMPLETE ===");
-    } else {
-      console.warn("No associatedTrainers found in API response, not updating trainer list");
     }
   };
 
   // Method to clear selected trainers without affecting existing ones
   const clearSelectedTrainersOnly = () => {
-    console.log("Clearing selected trainers only, preserving existing trainers");
-    console.log("Selected trainers before clear:", selectedTrainers.length);
-    console.log("Existing trainers (preserved):", existingGymTrainers.length);
-    
     onTrainersChange([]);
     
     if (onTrainersToRemoveChange) {
@@ -546,31 +411,19 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   // Create backup of current state before updates
   const createTrainerBackup = () => {
-    console.log("=== CREATING TRAINER BACKUP ===");
     const currentCompleteList = getCompleteTrainerList();
     setBackupTrainers(currentCompleteList);
-    console.log("Backed up trainers:", currentCompleteList.map((t: Trainer) => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Backup created with", currentCompleteList.length, "trainers");
   };
 
   // Restore from backup if needed
   const restoreFromBackup = () => {
-    console.log("=== RESTORING FROM BACKUP ===");
-    console.log("Backup contains:", backupTrainers.length, "trainers");
-    console.log("Backup trainers:", backupTrainers.map((t: Trainer) => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    
     if (backupTrainers.length > 0) {
       setExistingGymTrainers(backupTrainers);
-      console.log("Restored existing trainers from backup");
-    } else {
-      console.log("No backup available to restore");
     }
   };
 
   // Enhanced simplified method for handling successful trainer updates
   const handleSuccessfulUpdate = () => {
-    console.log("=== HANDLING SUCCESSFUL UPDATE (ENHANCED) ===");
-    
     // Create backup before any changes
     createTrainerBackup();
     
@@ -579,40 +432,30 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
     
     // Update the existing trainers with this complete list
     updateWithCompleteList(completeList);
-    
-    console.log("=== SUCCESSFUL UPDATE COMPLETE ===");
   };
 
   // Method to handle updates without automatic refetching
   const handleUpdateWithoutRefetch = () => {
-    console.log("=== HANDLING UPDATE WITHOUT REFETCH ===");
-    
     // Get the complete list that should now be the gym's trainers
     const completeList = getCompleteTrainerList();
-    console.log("Complete list for update:", completeList.map((t: Trainer) => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
     
     // Update UI immediately with the calculated complete list
     setExistingGymTrainers(completeList);
     
     // Clear selected trainers since they're now part of existing
-    console.log("Clearing selected trainers");
     onTrainersChange([]);
     
     // Clear removal marks since update was successful
     if (onTrainersToRemoveChange) {
-      console.log("Clearing trainers marked for removal");
       onTrainersToRemoveChange([]);
     }
     
     // Mark successful update to prevent automatic refetching
     setLastSuccessfulUpdate(Date.now());
-    
-    console.log("=== UPDATE WITHOUT REFETCH COMPLETE ===");
   };
 
   // Method to manually refresh when ready
   const manualRefresh = () => {
-    console.log("=== MANUAL REFRESH TRIGGERED ===");
     setLastSuccessfulUpdate(0); // Reset to allow fetching
     if (gymId) {
       fetchExistingGymTrainers(gymId);
@@ -734,75 +577,45 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   // Get the complete list of trainers that should be associated with the gym
   const getCompleteTrainerList = (): Trainer[] => {
-    console.log("=== GETTING COMPLETE TRAINER LIST ===");
-    console.log("existingGymTrainers:", existingGymTrainers.length, existingGymTrainers.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("trainersToRemove:", trainersToRemove);
-    console.log("selectedTrainers:", selectedTrainers.length, selectedTrainers.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    
     // Start with existing trainers
     const existingNotMarkedForRemoval = existingGymTrainers.filter(
       trainer => {
         const isMarkedForRemoval = trainersToRemove.includes(trainer.id);
-        console.log(`Trainer ${trainer.first_name_th} (${trainer.id}) - marked for removal: ${isMarkedForRemoval}`);
         return !isMarkedForRemoval;
       }
     );
-    
-    console.log("existingNotMarkedForRemoval:", existingNotMarkedForRemoval.length, existingNotMarkedForRemoval.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
     
     // Add selected trainers (new ones being added)
     const selectedTrainerIds = selectedTrainers.map(t => t.id);
     const existingIds = existingNotMarkedForRemoval.map(t => t.id);
     
-    console.log("selectedTrainerIds:", selectedTrainerIds);
-    console.log("existingIds:", existingIds);
-    
     // Avoid duplicates when merging
     const newTrainersToAdd = selectedTrainers.filter(
       trainer => {
         const isAlreadyExisting = existingIds.includes(trainer.id);
-        console.log(`Selected trainer ${trainer.first_name_th} (${trainer.id}) - already existing: ${isAlreadyExisting}`);
         return !isAlreadyExisting;
       }
     );
     
-    console.log("newTrainersToAdd:", newTrainersToAdd.length, newTrainersToAdd.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    
     const completeList = [...existingNotMarkedForRemoval, ...newTrainersToAdd];
-    
-    console.log("=== COMPLETE TRAINER LIST RESULT ===");
-    console.log("Final complete list:", completeList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Total trainers in complete list:", completeList.length);
-    console.log("=== END COMPLETE TRAINER LIST ===");
     
     return completeList;
   };
 
   // Update existing trainers list with the complete trainer list (after successful API update)
   const updateWithCompleteList = (completeTrainerList: Trainer[]) => {
-    console.log("=== UPDATING WITH COMPLETE LIST ===");
-    console.log("Input completeTrainerList:", completeTrainerList.length, completeTrainerList.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Current existingGymTrainers before update:", existingGymTrainers.length, existingGymTrainers.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Current selectedTrainers before clear:", selectedTrainers.length, selectedTrainers.map(t => `${t.first_name_th} ${t.last_name_th} (${t.id})`));
-    console.log("Current trainersToRemove before clear:", trainersToRemove);
-    
     setExistingGymTrainers(completeTrainerList);
-    console.log("Set existingGymTrainers to complete list");
     
     // Clear selected trainers since they're now part of existing
-    console.log("Clearing selected trainers");
     onTrainersChange([]);
     
     // Clear removal marks since update was successful
     if (onTrainersToRemoveChange) {
-      console.log("Clearing trainers marked for removal");
       onTrainersToRemoveChange([]);
     }
     
     // Mark successful update to prevent unnecessary refetches
     setLastSuccessfulUpdate(Date.now());
-    
-    console.log("=== UPDATE WITH COMPLETE LIST COMPLETE ===");
   };
 
   return (
@@ -891,7 +704,6 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log("Removing trainer:", trainer.id, trainer.first_name_th);
                             
                             if (onTrainersToRemoveChange) {
                               // Use soft removal (mark for removal)
@@ -993,7 +805,6 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log("Removing selected trainer:", trainer.id, trainer.first_name_th);
                           handleRemoveTrainer(trainer.id);
                         }}
                         disabled={disabled}

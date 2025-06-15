@@ -46,23 +46,56 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [provinces, setProvinces] = useState<Province[]>([])
   const [isLoadingProvinces, setIsLoadingProvinces] = useState(false)
+  const [provincesError, setProvincesError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
 
-  // Fetch provinces on component mount
+  // Fetch provinces function - moved outside useEffect for better organization
+  const fetchProvinces = async () => {
+    setIsLoadingProvinces(true)
+    setProvincesError(null)
+    try {
+      const response = await provincesApi.getAll()
+      setProvinces(response.data || response)
+    } catch (error) {
+      console.error("Error fetching provinces:", error)
+      setProvincesError("ไม่สามารถโหลดข้อมูลจังหวัดได้")
+    } finally {
+      setIsLoadingProvinces(false)
+    }
+  }
+
+  // Fetch provinces on component mount with cleanup
   useEffect(() => {
-    const fetchProvinces = async () => {
+    let isMounted = true
+    
+    const loadProvinces = async () => {
       setIsLoadingProvinces(true)
+      setProvincesError(null)
       try {
         const response = await provincesApi.getAll()
-        setProvinces(response.data || response)
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setProvinces(response.data || response)
+        }
       } catch (error) {
-        console.error("Error fetching provinces:", error)
+        if (isMounted) {
+          console.error("Error fetching provinces:", error)
+          setProvincesError("ไม่สามารถโหลดข้อมูลจังหวัดได้")
+        }
       } finally {
-        setIsLoadingProvinces(false)
+        if (isMounted) {
+          setIsLoadingProvinces(false)
+        }
       }
     }
-
-    fetchProvinces()
+    
+    loadProvinces()
+    
+    // Cleanup function
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const validateForm = () => {
@@ -263,6 +296,21 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
               <Label htmlFor="province" className="text-md font-medium">
                 จังหวัด *
               </Label>
+              {/* Show error message if provinces failed to load */}
+              {provincesError && (
+                <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{provincesError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchProvinces}
+                    disabled={isLoadingProvinces}
+                  >
+                    ลองใหม่
+                  </Button>
+                </div>
+              )}
               {/* Overlay to dim the screen when popover is open */}
               {isOpen && (
                 <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
@@ -278,11 +326,13 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave }: GymFormStep1Prop
                       !formData.province_id && "text-muted-foreground",
                       errors.province_id && "border-red-500"
                     )}
-                    disabled={isSubmitting || isLoadingProvinces}
+                    disabled={isSubmitting || isLoadingProvinces || !!provincesError}
                   >
                     <span className="truncate">
                       {isLoadingProvinces
                         ? "กำลังโหลด..."
+                        : provincesError
+                        ? "เกิดข้อผิดพลาดในการโหลด"
                         : formData.province_id
                         ? provinces.find(p => p.id === formData.province_id)?.name_th
                         : "เลือกจังหวัด"}
