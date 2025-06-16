@@ -35,7 +35,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
-import type { Trainer, Province } from "@/lib/types"
+import type { Trainer, Gym, Province } from "@/lib/types"
 import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -43,7 +43,7 @@ import { Switch } from "@/components/ui/switch"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [gyms, setGyms] = useState<any[]>([])
+  const [gyms, setGyms] = useState<Gym[]>([])
   const [provinces, setProvinces] = useState<Province[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
@@ -205,29 +205,18 @@ export default function TrainersPage() {
   const transformTrainerToFormData = (trainer: Trainer): TrainerFormData => {
     return {
       id: trainer.id,
-      firstName: {
-        th: trainer.first_name_th || "",
-        en: trainer.first_name_en || "",
-      },
-      lastName: {
-        th: trainer.last_name_th || "",
-        en: trainer.last_name_en || "",
-      },
+      firstName: { th: trainer.first_name_th || "", en: trainer.first_name_en || "" },
+      lastName: { th: trainer.last_name_th || "", en: trainer.last_name_en || "" },
       email: trainer.email || "",
       phone: trainer.phone || "",
       status: trainer.is_active ? "active" : "inactive",
-      assignedGym: trainer.primaryGym?.id || "",
       province_id: trainer.province?.id || null,
-      tags: trainer.tags || [],
-      isFreelancer: trainer.is_freelance || false,
-      bio: {
-        th: trainer.bio_th || "",
-        en: trainer.bio_en || "",
-      },
+      tags: trainer.tags ? trainer.tags.map(tag => tag.name_en) : [],
+      isFreelancer: trainer.is_freelance,
+      bio: { th: trainer.bio_th || "", en: trainer.bio_en || "" },
       lineId: trainer.line_id || "",
       yearsOfExperience: trainer.exp_year || 0,
-      privateClasses: transformBackendClassesToPrivateClasses(trainer.classes || []),
-      joinedDate: trainer.created_at,
+      privateClasses: transformBackendClassesToPrivateClasses(trainer.classes || [])
     }
   }
 
@@ -283,33 +272,33 @@ export default function TrainersPage() {
 
   // Transform form data to backend API structure
   const transformFormDataToApi = (formData: TrainerFormData) => {
-    // Validation: Non-freelance trainers must have a gym
-    if (!formData.isFreelancer && !formData.assignedGym) {
-      throw new Error("ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม")
-    }
-
-    const transformedClasses = transformPrivateClassesToBackend(formData.privateClasses || [])
-
-    const apiData = {
+    // Note: No gym_id is sent from here. Assignment is handled in the Gym management section.
+    return {
       first_name_th: formData.firstName.th,
       first_name_en: formData.firstName.en,
       last_name_th: formData.lastName.th,
       last_name_en: formData.lastName.en,
-      email: formData.email || "",
-      phone: formData.phone,
+      email: formData.email,
+      phone: formData.phone, // Already cleaned in the form component
+      is_active: formData.status === "active",
+      province_id: formData.province_id,
+      tags: formData.tags ? formData.tags.map(tagName => ({ name_en: tagName, name_th: tagName })) : [],
+      is_freelance: formData.isFreelancer,
       bio_th: formData.bio.th,
       bio_en: formData.bio.en,
-      is_active: formData.status === "active",
-      is_freelance: formData.isFreelancer,
-      gym_id: formData.isFreelancer ? null : (formData.assignedGym || null),
-      line_id: formData.lineId || "",
-      exp_year: formData.yearsOfExperience || 0,
-      tags: formData.tags,
-      province_id: formData.province_id,
-      classes: transformedClasses,
+      line_id: formData.lineId,
+      exp_year: formData.yearsOfExperience,
+      // `classes` needs to be transformed for the API
+      classes: (formData.privateClasses || []).map(cls => ({
+        name: { th: cls.name.th, en: cls.name.en },
+        description: { th: cls.description.th, en: cls.description.en },
+        duration: cls.duration,
+        price: cls.price,
+        maxStudents: cls.maxStudents,
+        isPrivateClass: true,
+        isActive: cls.isActive
+      }))
     }
-    
-    return apiData
   }
 
   const toggleCreatedSort = () => {
@@ -333,49 +322,28 @@ export default function TrainersPage() {
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
       const apiData = transformFormDataToApi(formData)
-      const response = await trainersApi.create(apiData)
-      
-      // Extract the actual trainer data from the response
-      const newTrainer = response.data || response
-      
-      // IMPORTANT: Clear all dialog states FIRST
+      await trainersApi.create(apiData)
+      toast.success("สร้างครูมวยสำเร็จ")
       setIsAddDialogOpen(false)
-      setEditingTrainer(null)
-      
-      // Automatically refresh data to get the latest state from server
       refreshData()
-      
-      toast.success("เพิ่มครูมวยสำเร็จ")
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
-      toast.error(errorMessage)
-      // On error, refresh to get correct state
-      refreshData()
+      console.error("Error creating trainer:", err)
+      toast.error(err instanceof Error ? err.message : "ไม่สามารถสร้างครูมวยได้")
     }
   }
 
   const handleEditTrainer = async (formData: TrainerFormData) => {
-    if (editingTrainer) {
-      try {
-        const apiData = transformFormDataToApi(formData)
-        const response = await trainersApi.update(editingTrainer.id, apiData)
-        
-        // Extract the actual trainer data from the response
-        const updatedTrainer = response.data || response
-        
-        // IMPORTANT: Clear editing state FIRST to prevent dialog reopening
-        setEditingTrainer(null)
-        
-        // Automatically refresh data to get the latest state from server
-        refreshData()
-        
-        toast.success("แก้ไขครูมวยสำเร็จ")
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
-        toast.error(errorMessage)
-        // On error, refresh to get correct state
-        refreshData()
-      }
+    if (!editingTrainer) return
+
+    try {
+      const apiData = transformFormDataToApi(formData)
+      await trainersApi.update(editingTrainer.id, apiData)
+      toast.success("อัพเดทครูมวยสำเร็จ")
+      setEditingTrainer(null)
+      refreshData()
+    } catch (err) {
+      console.error("Error updating trainer:", err)
+      toast.error(err instanceof Error ? err.message : "ไม่สามารถอัพเดทครูมวยได้")
     }
   }
 
@@ -461,13 +429,9 @@ export default function TrainersPage() {
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
                     <TrainerForm 
-                      gyms={gyms}
-                      provinces={provinces}
                       onSubmit={handleAddTrainer} 
-                      onCancel={() => {
-                        setIsAddDialogOpen(false)
-                        setEditingTrainer(null)
-                      }} 
+                      provinces={provinces}
+                      onCancel={() => setIsAddDialogOpen(false)}
                     />
                   </div>
                 </DialogContent>
@@ -639,11 +603,11 @@ export default function TrainersPage() {
                                 </div>
                                 <div className="flex-1 overflow-y-auto px-6 pb-6">
                                   <TrainerForm 
-                                    trainer={transformTrainerToFormData(trainer) as any}
-                                    gyms={gyms}
+                                    key={`form-${trainer.id}`}
+                                    trainer={editingTrainer} 
                                     provinces={provinces}
-                                    onSubmit={handleEditTrainer} 
-                                    onCancel={() => closeEditDialog()}
+                                    onSubmit={handleEditTrainer}
+                                    onCancel={() => setEditingTrainer(null)}
                                   />
                                 </div>
                               </DialogContent>
@@ -659,7 +623,7 @@ export default function TrainersPage() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบครูมวยและข้อมูลของเขาออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
+                                    การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบข้อมูลครูมวยออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

@@ -36,24 +36,16 @@ export interface TrainerSelectorRef {
   manualRefresh: () => void;
 }
 
-// Backend trainer type that matches the actual API response
-interface BackendTrainer {
+// Backend trainer type that matches the actual API response (simplified for selection)
+interface TrainerForSelection {
   id: string;
   first_name_th: string;
   last_name_th: string | null;
   first_name_en: string;
   last_name_en: string | null;
-  bio_th: string | null;
-  bio_en: string | null;
-  phone: string | null;
   email: string | null;
-  line_id: string | null;
-  is_freelance: boolean;
-  gym_id: string | null;
+  phone: string | null;
   exp_year: number | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
   province: {
     id: number;
     name_th: string;
@@ -100,31 +92,26 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   return response.json();
 };
 
-// Convert backend trainer to frontend trainer format
-const convertBackendTrainer = (backendTrainer: BackendTrainer): Trainer => {
+// Convert selection trainer to frontend trainer format
+const convertSelectionTrainer = (selectionTrainer: TrainerForSelection): Trainer => {
   return {
-    id: backendTrainer.id,
-    first_name_th: backendTrainer.first_name_th,
-    first_name_en: backendTrainer.first_name_en,
-    last_name_th: backendTrainer.last_name_th || '',
-    last_name_en: backendTrainer.last_name_en || '',
-    email: backendTrainer.email || '',
-    phone: backendTrainer.phone || undefined,
-    bio_th: backendTrainer.bio_th || undefined,
-    bio_en: backendTrainer.bio_en || undefined,
-    is_active: backendTrainer.is_active,
-    is_freelance: backendTrainer.is_freelance,
-    line_id: backendTrainer.line_id || undefined,
-    exp_year: backendTrainer.exp_year || undefined,
-    province: backendTrainer.province || undefined,
-    created_at: backendTrainer.created_at,
-    updated_at: backendTrainer.updated_at,
-    // Map gym_id to primaryGym structure if needed
-    primaryGym: backendTrainer.gym_id ? { 
-      id: backendTrainer.gym_id, 
-      name_th: '', 
-      name_en: '' 
-    } : undefined
+    id: selectionTrainer.id,
+    first_name_th: selectionTrainer.first_name_th,
+    first_name_en: selectionTrainer.first_name_en,
+    last_name_th: selectionTrainer.last_name_th || '',
+    last_name_en: selectionTrainer.last_name_en || '',
+    email: selectionTrainer.email || '',
+    phone: selectionTrainer.phone || undefined,
+    bio_th: undefined,
+    bio_en: undefined,
+    is_active: true, // Selection API only returns active trainers
+    is_freelance: false, // Selection API only returns non-freelance
+    line_id: undefined,
+    exp_year: selectionTrainer.exp_year || undefined,
+    province: selectionTrainer.province || undefined,
+    created_at: '', // Not needed for selection
+    updated_at: '', // Not needed for selection
+    primaryGym: undefined // Selection API only returns unassigned trainers
   };
 };
 
@@ -207,30 +194,20 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
     
     setIsLoadingExisting(true);
     try {
-      const params = new URLSearchParams({
-        gymId: gymId,
-        includeInactive: "false",
-        page: "1",
-        pageSize: "100"
-      });
+      // Use the new selection API for gym trainers
+      const response = await apiRequest(`/api/selection/trainers/gym/${gymId}`);
       
-      const response = await apiRequest(`/api/trainers?${params.toString()}`);
+      // Handle selection API response structure
+      let selectionTrainers: TrainerForSelection[] = [];
       
-      // Handle different possible response structures
-      let backendTrainers: BackendTrainer[] = [];
-      
-      if (response.data?.items && Array.isArray(response.data.items)) {
-        backendTrainers = response.data.items;
-      } else if (response.trainers && Array.isArray(response.trainers)) {
-        backendTrainers = response.trainers;
-      } else if (response.data?.trainers && Array.isArray(response.data.trainers)) {
-        backendTrainers = response.data.trainers;
+      if (response.data && Array.isArray(response.data)) {
+        selectionTrainers = response.data;
+      } else if (Array.isArray(response)) {
+        selectionTrainers = response;
       }
 
-      // Filter and convert to frontend format
-      const gymTrainers = backendTrainers
-        .filter(trainer => trainer.gym_id === gymId)
-        .map(convertBackendTrainer);
+      // Convert to frontend format
+      const gymTrainers = selectionTrainers.map(convertSelectionTrainer);
       
       setExistingGymTrainers(gymTrainers);
     } catch (error) {
@@ -249,45 +226,43 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
     }
 
     try {
-      // Optimized: Use unassignedOnly parameter instead of filtering client-side
+      // Use the new selection API
       const params = new URLSearchParams({
         page: page.toString(),
         pageSize: pageSize.toString(),
-        includeInactive: "false",
-        unassignedOnly: "true" // Use backend filtering
+        sortBy: 'name'
       });
       
-      const response = await apiRequest(`/api/trainers?${params.toString()}`);
+      // Exclude already selected trainers
+      if (selectedTrainers.length > 0) {
+        params.set('excludeIds', selectedTrainers.map(t => t.id).join(','));
+      }
       
-      // Handle different possible response structures
-      let backendTrainers: BackendTrainer[] = [];
+      const response = await apiRequest(`/api/selection/trainers/available?${params.toString()}`);
+      
+      // Handle selection API response structure
+      let selectionTrainers: TrainerForSelection[] = [];
       let total = 0;
       
       if (response.data?.items && Array.isArray(response.data.items)) {
-        backendTrainers = response.data.items;
+        selectionTrainers = response.data.items;
         total = response.data.total || response.data.items.length;
-      } else if (response.trainers && Array.isArray(response.trainers)) {
-        backendTrainers = response.trainers;
-        total = response.total || response.trainers.length;
-      } else if (response.data?.trainers && Array.isArray(response.data.trainers)) {
-        backendTrainers = response.data.trainers;
-        total = response.data.total || response.data.trainers.length;
-      } else if (Array.isArray(response.data)) {
-        backendTrainers = response.data;
+      } else if (response.data && Array.isArray(response.data)) {
+        selectionTrainers = response.data;
         total = response.data.length;
       } else if (Array.isArray(response)) {
-        backendTrainers = response;
+        selectionTrainers = response;
         total = response.length;
       }
 
-      // Convert to frontend format (backend already filtered)
-      const unassignedTrainers = backendTrainers.map(convertBackendTrainer);
+      // Convert to frontend format
+      const availableTrainers = selectionTrainers.map(convertSelectionTrainer);
 
       if (reset) {
-        setAvailableTrainers(unassignedTrainers);
+        setAvailableTrainers(availableTrainers);
         setCurrentPage(1);
       } else {
-        setAvailableTrainers(prev => [...prev, ...unassignedTrainers]);
+        setAvailableTrainers(prev => [...prev, ...availableTrainers]);
         setCurrentPage(page);
       }
 
@@ -298,6 +273,7 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
       setHasNextPage(page < totalPages);
 
     } catch (error) {
+      console.error("Error fetching available trainers:", error);
       if (reset) {
         setAvailableTrainers([]);
       }
@@ -315,15 +291,36 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
 
   const filteredAvailableTrainers = availableTrainers.filter((trainer) => {
     // Filter out already selected trainers
-    return !selectedTrainers.find((t) => t.id === trainer.id);
+    const isAlreadySelected = selectedTrainers.find((t) => t.id === trainer.id);
+    
+    // Filter out trainers that already have a primaryGym (gym_id is not null)
+    const hasExistingGym = trainer.primaryGym || (trainer as any).gym_id;
+    
+    // Filter out inactive trainers
+    const isInactive = !trainer.is_active;
+    
+    return !isAlreadySelected && !hasExistingGym && !isInactive;
   });
 
   const handleAddTrainer = (trainer: Trainer) => {
-    if (!selectedTrainers.find((t) => t.id === trainer.id)) {
-      const newSelectedTrainers = [...selectedTrainers, trainer];
-      onTrainersChange(newSelectedTrainers);
-      setIsDropdownOpen(false);
+    // Check if trainer is already selected
+    if (selectedTrainers.find((t) => t.id === trainer.id)) {
+      return;
     }
+    
+    // Check if trainer already has a gym
+    if (trainer.primaryGym || (trainer as any).gym_id) {
+      return;
+    }
+    
+    // Check if trainer is inactive
+    if (!trainer.is_active) {
+      return;
+    }
+    
+    const newSelectedTrainers = [...selectedTrainers, trainer];
+    onTrainersChange(newSelectedTrainers);
+    setIsDropdownOpen(false);
   };
 
   const handleRemoveTrainer = (trainerId: string) => {
@@ -373,7 +370,39 @@ export const TrainerSelector = forwardRef<TrainerSelectorRef, TrainerSelectorPro
   // Function to handle successful trainer updates (call this after saving)
   const handleTrainerUpdateSuccess = (response: any) => {
     if (response?.data?.associatedTrainers && Array.isArray(response.data.associatedTrainers)) {
-      const apiTrainers = response.data.associatedTrainers.map((trainer: any) => convertBackendTrainer(trainer));
+      // Convert associated trainers to frontend format
+      const apiTrainers = response.data.associatedTrainers.map((trainer: any) => {
+        // Handle both full trainer objects and selection trainer objects
+        if (trainer.gym_id !== undefined) {
+          // This is a full trainer object from the main API
+          return {
+            id: trainer.id,
+            first_name_th: trainer.first_name_th,
+            first_name_en: trainer.first_name_en,
+            last_name_th: trainer.last_name_th || '',
+            last_name_en: trainer.last_name_en || '',
+            email: trainer.email || '',
+            phone: trainer.phone || undefined,
+            bio_th: trainer.bio_th || undefined,
+            bio_en: trainer.bio_en || undefined,
+            is_active: trainer.is_active,
+            is_freelance: trainer.is_freelance,
+            line_id: trainer.line_id || undefined,
+            exp_year: trainer.exp_year || undefined,
+            province: trainer.province || undefined,
+            created_at: trainer.created_at,
+            updated_at: trainer.updated_at,
+            primaryGym: trainer.gym_id ? { 
+              id: trainer.gym_id, 
+              name_th: '', 
+              name_en: '' 
+            } : undefined
+          };
+        } else {
+          // This is a selection trainer object
+          return convertSelectionTrainer(trainer);
+        }
+      });
       
       // CRITICAL FIX: Don't replace existing trainers, just add new ones
       setExistingGymTrainers(prevTrainers => {

@@ -236,7 +236,12 @@ export default function GymsPage() {
 
   const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     try {
+      console.log("DEBUG - handleAddGym received data:", gymData);
+      console.log("DEBUG - associatedTrainers in gymData:", gymData.associatedTrainers);
+      
       const newGym = await gymsApi.create(gymData);
+      
+      console.log("DEBUG - API response from create:", newGym);
       
       // IMPORTANT: Clear all dialog states FIRST
       setIsAddDialogOpen(false);
@@ -252,6 +257,7 @@ export default function GymsPage() {
         }
       });
     } catch (err) {
+      console.error("DEBUG - Error in handleAddGym:", err);
       toast.error("ไม่สามารถเพิ่มยิมได้");
       // On error, refresh to get correct state
       refreshData();
@@ -575,14 +581,14 @@ export default function GymsPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบยิมและข้อมูลของมันออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
+                                <AlertDialogTitle className="text-red-500 font-semibold text-lg mb-2">คุณแน่ใจหรือไม่?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-red-500 font-normal text-md">
+                                การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบยิมและ<span className="font-bold text-lg underline">เทรนเนอร์ </span>ที่เกี่ยวข้อง<span className="font-bold text-lg underline">อย่างถาวร</span>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteGym(gym.id)}>ลบ</AlertDialogAction>
+                                <AlertDialogAction className="bg-red-500 hover:bg-red-600" onClick={() => handleDeleteGym(gym.id)}>ลบ</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>

@@ -130,11 +130,21 @@ export function GymFormStep2({
       const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
       const completeTrainerIds = completeTrainerList.map(t => t.id);
 
+      console.log("DEBUG - Trainer data in handleSubmit:");
+      console.log("- completeTrainerList:", completeTrainerList);
+      console.log("- completeTrainerIds:", completeTrainerIds);
+
       const completeFormData = {
         ...initialData,
         ...formData,
         associatedTrainers: completeTrainerIds,
       };
+
+      console.log("DEBUG - Complete form data being submitted:");
+      console.log("- initialData:", initialData);
+      console.log("- formData:", formData);
+      console.log("- completeFormData:", completeFormData);
+      console.log("- gym (edit mode check):", gym);
 
       if (gym) {
         // Update logic - for edit mode
@@ -154,6 +164,7 @@ export function GymFormStep2({
         }
       } else {
         // Create logic - for create mode
+        console.log("DEBUG - Entering create mode, calling onSubmit with:", completeFormData);
         if (onSubmit) {
           await onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
         }

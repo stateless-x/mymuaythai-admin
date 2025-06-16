@@ -60,7 +60,6 @@ export interface TrainerFormData {
   email: string
   phone: string
   status: "active" | "inactive"
-  assignedGym: string
   province_id: number | null
   tags: string[]
   isFreelancer: boolean
@@ -73,13 +72,12 @@ export interface TrainerFormData {
 
 export interface TrainerFormProps {
   trainer?: TrainerFormData | any // Allow both form data and backend data structure
-  gyms?: Gym[]
   provinces?: Province[]
   onSubmit: (trainer: TrainerFormData) => void
   onCancel: () => void
 }
 
-export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCancel }: TrainerFormProps) {
+export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: TrainerFormProps) {
   const [formData, setFormData] = useState<TrainerFormData>({
     firstName: {
       th: trainer?.firstName?.th || trainer?.first_name_th || "",
@@ -92,7 +90,6 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
     email: trainer?.email || "",
     phone: trainer?.phone || "",
     status: trainer?.status || (trainer?.is_active !== undefined ? (trainer.is_active ? "active" : "inactive") : "active"),
-    assignedGym: trainer?.assignedGym || trainer?.primaryGym?.id || trainer?.gym_id || "",
     province_id: trainer?.province_id || trainer?.province?.id || null,
     tags: trainer?.tags || [],
     isFreelancer: trainer?.isFreelancer !== undefined ? trainer.isFreelancer : (trainer?.is_freelance || false),
@@ -107,7 +104,6 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isGymPopoverOpen, setIsGymPopoverOpen] = useState(false)
   const [isProvincePopoverOpen, setIsProvincePopoverOpen] = useState(false)
 
   const validateForm = () => {
@@ -127,7 +123,6 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
       'bio.en': formData.bio.en,
       'email': formData.email,
       'yearsOfExperience': formData.yearsOfExperience,
-      'assignedGym': formData.assignedGym,
       'province_id': formData.province_id,
       'isFreelancer': formData.isFreelancer
     }
@@ -141,10 +136,6 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
 
     if (formData.yearsOfExperience < 0 || formData.yearsOfExperience > 99) {
       formErrors.yearsOfExperience = "ประสบการณ์ต้องอยู่ระหว่าง 0 ถึง 99 ปี"
-    }
-
-    if (!formData.isFreelancer && !formData.assignedGym) {
-      formErrors.assignedGym = "ครูมวยที่ไม่ใช่ฟรีแลนซ์ต้องมีการมอบหมายยิม"
     }
 
     if (!formData.province_id) {
@@ -435,12 +426,7 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                     id="freelancer"
                     checked={formData.isFreelancer}
                     onCheckedChange={(checked) => {
-                      const newFormData = { ...formData, isFreelancer: checked }
-                      if (checked) {
-                        // When switching to freelancer, clear assigned gym.
-                        newFormData.assignedGym = ""
-                      }
-                      setFormData(newFormData)
+                      setFormData({ ...formData, isFreelancer: checked })
                     }}
                     disabled={isSubmitting}
                   />
@@ -449,94 +435,6 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                   </Label>
                   <span className="text-xs text-muted-foreground">(สามารถจัดการคลาสส่วนตัวและกำหนดราคาเองได้)</span>
                 </div>
-
-                {!formData.isFreelancer && (
-                  <div className="space-y-1">
-                    <Label htmlFor="gym" className="text-sm">
-                      ยิมที่มอบหมาย *
-                    </Label>
-                    {/* Overlay to dim the screen when popover is open */}
-                    {isGymPopoverOpen && (
-                      <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsGymPopoverOpen(false)} />
-                    )}
-                    <Popover open={isGymPopoverOpen} onOpenChange={setIsGymPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={isGymPopoverOpen}
-                          className={cn(
-                            "h-9 w-full justify-between text-left relative z-50",
-                            !formData.assignedGym && "text-muted-foreground",
-                            errors.assignedGym && "border-red-500"
-                          )}
-                          disabled={isSubmitting}
-                        >
-                          <span className="truncate">
-                            {(() => {
-                              if (formData.assignedGym) {
-                                const selectedGym = gyms.find((gym) => gym.id === formData.assignedGym)
-                                return selectedGym?.name_th || selectedGym?.name_en || "เลือกยิม"
-                              }
-                              return "เลือกยิม"
-                            })()}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0 z-50" align="start">
-                        <Command>
-                          <CommandInput
-                            placeholder="ค้นหายิม..."
-                            className="h-9"
-                          />
-                          <CommandEmpty>ไม่พบยิมที่ค้นหา</CommandEmpty>
-                          <CommandList>
-                            <div 
-                              className="max-h-[200px] overflow-y-auto"
-                              style={{
-                                scrollbarWidth: 'thin',
-                                scrollbarColor: '#d1d5db #f3f4f6'
-                              }}
-                              onWheel={(e) => {
-                                e.stopPropagation();
-                                const target = e.currentTarget;
-                                target.scrollTop += e.deltaY;
-                              }}
-                            >
-                              <CommandGroup>
-                                {gyms
-                                  .filter((gym) => gym.is_active)
-                                  .map((gym) => {
-                                    const displayName = gym.name_th || gym.name_en || "ไม่ระบุชื่อ"
-                                    return (
-                                      <CommandItem
-                                        key={gym.id}
-                                        value={displayName}
-                                        onSelect={() => {
-                                          setFormData({ ...formData, assignedGym: gym.id })
-                                          setIsGymPopoverOpen(false)
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            formData.assignedGym === gym.id ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {displayName}
-                                      </CommandItem>
-                                    )
-                                  })}
-                              </CommandGroup>
-                            </div>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    {errors.assignedGym && <p className="text-sm text-red-500 mt-1">{errors.assignedGym}</p>}
-                  </div>
-                )}
                 
                 <div className="space-y-1">
                   <Label htmlFor="province" className="text-sm">
