@@ -185,7 +185,7 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
     <div className="w-full">
       <ScrollArea className="h-[85vh] w-full">
         <div className="px-6 pr-16 pb-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             {/* Thai Information */}
             <Card>
               <CardHeader className="pb-3">
@@ -206,6 +206,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="ชื่อภาษาไทย"
                       disabled={isSubmitting}
                       className={`h-9 ${errors['firstName.th'] ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors['firstName.th'] && <p className="text-sm text-red-500 mt-1">{errors['firstName.th']}</p>}
                   </div>
@@ -223,6 +227,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="นามสกุลภาษาไทย"
                       disabled={isSubmitting}
                       className={`h-9 ${errors['lastName.th'] ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors['lastName.th'] && <p className="text-sm text-red-500 mt-1">{errors['lastName.th']}</p>}
                   </div>
@@ -240,6 +248,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                     rows={3}
                     disabled={isSubmitting}
                     className={`resize-none ${errors['bio.th'] ? "border-red-500" : ""}`}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                   {errors['bio.th'] && <p className="text-sm text-red-500 mt-1">{errors['bio.th']}</p>}
                 </div>
@@ -266,6 +278,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="First name in English"
                       disabled={isSubmitting}
                       className={`h-9 ${errors['firstName.en'] ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors['firstName.en'] && <p className="text-sm text-red-500 mt-1">{errors['firstName.en']}</p>}
                   </div>
@@ -283,6 +299,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="Last name in English"
                       disabled={isSubmitting}
                       className={`h-9 ${errors['lastName.en'] ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors['lastName.en'] && <p className="text-sm text-red-500 mt-1">{errors['lastName.en']}</p>}
                   </div>
@@ -300,6 +320,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                     rows={3}
                     disabled={isSubmitting}
                     className={`resize-none ${errors['bio.en'] ? "border-red-500" : ""}`}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                   {errors['bio.en'] && <p className="text-sm text-red-500 mt-1">{errors['bio.en']}</p>}
                 </div>
@@ -324,6 +348,11 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       disabled={isSubmitting}
                       className={`h-9 ${errors.email ? "border-red-500" : ""}`}
+                      autoComplete="new-email"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      placeholder="user@example.com"
                     />
                     {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                   </div>
@@ -337,7 +366,12 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       value={formData.phone}
                       onChange={handlePhoneChange}
                       disabled={isSubmitting}
+                      placeholder="081-234-5678"
                       className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
                   </div>
@@ -355,6 +389,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="@lineid or lineid"
                       disabled={isSubmitting}
                       className="h-9"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                   </div>
 
@@ -375,6 +413,10 @@ export function TrainerForm({ trainer, gyms = [], provinces = [], onSubmit, onCa
                       placeholder="0-99"
                       disabled={isSubmitting}
                       className={`h-9 ${errors.yearsOfExperience ? "border-red-500" : ""}`}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                     {errors.yearsOfExperience && <p className="text-sm text-red-500 mt-1">{errors.yearsOfExperience}</p>}
                   </div>
