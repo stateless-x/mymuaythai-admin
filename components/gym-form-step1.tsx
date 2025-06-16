@@ -155,9 +155,14 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
         await onSave(cleanedData)
       }
       
+      // Proceed to next step
       onNext(cleanedData)
     } catch (error) {
       console.error("Error proceeding to next step:", error)
+      const { toast } = await import('sonner')
+      toast.error("ไม่สามารถดำเนินการต่อได้", {
+        description: "กรุณาลองอีกครั้ง"
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -180,6 +185,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
       toast.success("บันทึกข้อมูลสำเร็จ", {
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
       })
+      // Call onSuccess to indicate successful save
       onSuccess()
     } catch (error) {
       console.error("Error saving:", error)

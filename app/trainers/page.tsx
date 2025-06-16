@@ -39,6 +39,7 @@ import type { Trainer, Province } from "@/lib/types"
 import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
+import { Switch } from "@/components/ui/switch"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
@@ -46,10 +47,10 @@ export default function TrainersPage() {
   const [provinces, setProvinces] = useState<Province[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [includeInactive, setIncludeInactive] = useState(true)
   const [freelancerFilter, setFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
   const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest")
+  const [sortBy, setSortBy] = useState<"desc" | "asc">("desc")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -73,59 +74,29 @@ export default function TrainersPage() {
           setIsLoading(true)
         }
         
+        // Use correct parameter names for trainers API
         const trainersParams = {
-          page: pagination.page, // Use the current page as-is
+          page: pagination.page,
           pageSize: pagination.pageSize,
-          searchTerm: debouncedSearchTerm,
-          is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
-          is_freelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
+          searchTerm: debouncedSearchTerm || undefined,
+          includeInactive: includeInactive,
+          isFreelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
           sortField: sortField,
-          sortBy: sortBy === 'newest' ? 'desc' : 'asc',
+          sortBy: sortBy,
         }
         
         const [trainersResponse, gymsResponse, provincesResponse] = await Promise.all([
           trainersApi.getAll(trainersParams),
-          gymsApi.getAll({ pageSize: 100 }),
+          gymsApi.getAll({ pageSize: 100, includeInactive: true }),
           provincesApi.getAll()
         ])
         
-        let filteredTrainers = trainersResponse.data?.items || [];
-        
-        // Client-side filtering as fallback if backend search doesn't work properly
-        if (debouncedSearchTerm) {
-          const searchLower = debouncedSearchTerm.toLowerCase();
-          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
-            trainer.first_name_th?.toLowerCase().includes(searchLower) ||
-            trainer.last_name_th?.toLowerCase().includes(searchLower) ||
-            trainer.first_name_en?.toLowerCase().includes(searchLower) ||
-            trainer.last_name_en?.toLowerCase().includes(searchLower) ||
-            trainer.email?.toLowerCase().includes(searchLower) ||
-            trainer.phone?.includes(debouncedSearchTerm) ||
-            trainer.province?.name_th?.toLowerCase().includes(searchLower) ||
-            trainer.province?.name_en?.toLowerCase().includes(searchLower) ||
-            trainer.primaryGym?.name_th?.toLowerCase().includes(searchLower) ||
-            trainer.primaryGym?.name_en?.toLowerCase().includes(searchLower)
-          );
-        }
-        
-        // Status filtering as fallback
-        if (statusFilter !== 'all') {
-          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
-            statusFilter === 'active' ? trainer.is_active : !trainer.is_active
-          );
-        }
-        
-        // Freelancer filtering as fallback
-        if (freelancerFilter !== 'all') {
-          filteredTrainers = filteredTrainers.filter((trainer: Trainer) => 
-            freelancerFilter === 'freelancer' ? trainer.is_freelance : !trainer.is_freelance
-          );
-        }
-        
-        setTrainers(filteredTrainers);
+        // Remove client-side filtering - let backend handle everything
+        const trainersData = trainersResponse.data?.items || [];
+        setTrainers(trainersData);
         
         // Use the pagination from response, but ensure it makes sense
-        const totalFromResponse = trainersResponse.data?.total || filteredTrainers.length;
+        const totalFromResponse = trainersResponse.data?.total || trainersData.length;
         const pageSizeFromResponse = trainersResponse.data?.pageSize || pagination.pageSize;
         const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
         
@@ -159,37 +130,14 @@ export default function TrainersPage() {
     }
 
     fetchData()
-  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, statusFilter, freelancerFilter, sortField, sortBy])
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, freelancerFilter, sortField, sortBy])
 
-  // Only reset to page 1 when search term or filters change (not when just navigating pages)
-  const [previousSearchTerm, setPreviousSearchTerm] = useState("")
-  const [previousStatusFilter, setPreviousStatusFilter] = useState<"all" | "active" | "inactive">("all")
-  const [previousFreelancerFilter, setPreviousFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
-  const [previousSortField, setPreviousSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [previousSortBy, setPreviousSortBy] = useState<"newest" | "oldest">("newest")
-
+  // Reset to page 1 when search term or filters change
   useEffect(() => {
-    // Check if search criteria actually changed
-    const searchChanged = debouncedSearchTerm !== previousSearchTerm
-    const statusChanged = statusFilter !== previousStatusFilter
-    const freelancerChanged = freelancerFilter !== previousFreelancerFilter
-    const sortFieldChanged = sortField !== previousSortField
-    const sortByChanged = sortBy !== previousSortBy
-
-    if (searchChanged || statusChanged || freelancerChanged || sortFieldChanged || sortByChanged) {
-      // Only reset to page 1 if we're not already on page 1
-      if (pagination.page !== 1) {
-        setPagination(prev => ({ ...prev, page: 1 }))
-      }
-      
-      // Update previous values
-      setPreviousSearchTerm(debouncedSearchTerm)
-      setPreviousStatusFilter(statusFilter)
-      setPreviousFreelancerFilter(freelancerFilter)
-      setPreviousSortField(sortField)
-      setPreviousSortBy(sortBy)
+    if (pagination.page !== 1) {
+      setPagination(prev => ({ ...prev, page: 1 }))
     }
-  }, [debouncedSearchTerm, statusFilter, freelancerFilter, sortField, sortBy, previousSearchTerm, previousStatusFilter, previousFreelancerFilter, previousSortField, previousSortBy, pagination.page])
+  }, [debouncedSearchTerm, includeInactive, freelancerFilter, sortField, sortBy])
 
   const handlePageChange = useCallback((newPage: number) => {
     setPagination(p => ({ ...p, page: newPage }));
@@ -363,19 +311,19 @@ export default function TrainersPage() {
 
   const toggleCreatedSort = () => {
     if (sortField === "created_at") {
-      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+      setSortBy(sortBy === "desc" ? "asc" : "desc")
     } else {
       setSortField("created_at")
-      setSortBy("newest")
+      setSortBy("desc")
     }
   }
 
   const toggleUpdatedSort = () => {
     if (sortField === "updated_at") {
-      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+      setSortBy(sortBy === "desc" ? "asc" : "desc")
     } else {
       setSortField("updated_at")
-      setSortBy("newest")
+      setSortBy("desc")
     }
   }
 
@@ -383,13 +331,25 @@ export default function TrainersPage() {
     try {
       const apiData = transformFormDataToApi(formData)
       const newTrainer = await trainersApi.create(apiData)
+      
+      // IMPORTANT: Clear all dialog states FIRST
       setIsAddDialogOpen(false)
       setEditingTrainer(null)
-      refreshData();
-      toast.success("เพิ่มครูมวยสำเร็จ")
+      
+      // Conservative approach: Only update total count, no array manipulation
+      setPagination(prev => ({ ...prev, total: prev.total + 1 }))
+      
+      toast.success("เพิ่มครูมวยสำเร็จ - รีเฟรชหน้าเพื่อดูครูมวยใหม่", {
+        action: {
+          label: "รีเฟรช",
+          onClick: () => refreshData()
+        }
+      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
       toast.error(errorMessage)
+      // On error, refresh to get correct state
+      refreshData()
     }
   }
 
@@ -397,25 +357,24 @@ export default function TrainersPage() {
     if (editingTrainer) {
       try {
         const apiData = transformFormDataToApi(formData)
-        await trainersApi.update(editingTrainer.id, apiData)
-        refreshData();
+        const updatedTrainer = await trainersApi.update(editingTrainer.id, apiData)
+        
+        // IMPORTANT: Clear editing state FIRST to prevent dialog reopening
+        const currentEditingId = editingTrainer.id
         setEditingTrainer(null)
+        
+        // Conservative approach: Just update the specific trainer in place if it exists
+        // This is safer than complex filtering logic
+        setTrainers(prev => prev.map(trainer => 
+          trainer.id === currentEditingId ? updatedTrainer : trainer
+        ))
+        
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "ไม่สามารถแก้ไขครูมวยได้"
         toast.error(errorMessage)
-      }
-    }
-  }
-
-  const handleSaveTrainer = async (trainerData: Omit<Trainer, "id" | "created_at">) => {
-    if (editingTrainer) {
-      try {
-        const updatedTrainer = await trainersApi.update(editingTrainer.id, trainerData)
-        setTrainers(prev => prev.map(trainer => trainer.id === editingTrainer.id ? updatedTrainer : trainer))
-        return updatedTrainer
-      } catch (err) {
-        throw err 
+        // On error, refresh to get correct state
+        refreshData()
       }
     }
   }
@@ -423,10 +382,16 @@ export default function TrainersPage() {
   const handleDeleteTrainer = async (trainerId: string) => {
     try {
       await trainersApi.delete(trainerId)
-      refreshData() // Refresh data
+      
+      // Simple optimistic update: Always remove from current view
+      setTrainers(prev => prev.filter(trainer => trainer.id !== trainerId))
+      setPagination(prev => ({ ...prev, total: prev.total - 1 }))
+      
       toast.success("ลบครูมวยสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบครูมวยได้")
+      // On error, refresh to get correct state
+      refreshData()
     }
   }
 
@@ -522,26 +487,28 @@ export default function TrainersPage() {
                   className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
                 />
               </div>
-              <Select value={freelancerFilter} onValueChange={handleFilterChange(setFreelancerFilter)}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="กรองตามประเภท" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
-                  <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
-                  <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="กรองตามสถานะ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="active">เปิดใช้งาน</SelectItem>
-                  <SelectItem value="inactive">ปิดการใช้งาน</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-inactive"
+                    checked={includeInactive}
+                    onCheckedChange={setIncludeInactive}
+                  />
+                  <label htmlFor="include-inactive" className="text-sm font-medium">
+                    แสดงครูมวยที่ปิดการใช้งาน
+                  </label>
+                </div>
+                <Select value={freelancerFilter} onValueChange={handleFilterChange(setFreelancerFilter)}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="กรองตามประเภท" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
+                    <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
+                    <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="border rounded-lg">
@@ -561,7 +528,7 @@ export default function TrainersPage() {
                       >
                         วันที่ลงทะเบียน
                         {sortField === "created_at" ? (
-                          sortBy === "newest" ? (
+                          sortBy === "desc" ? (
                             <ArrowDown className="ml-1 h-4 w-4" />
                           ) : (
                             <ArrowUp className="ml-1 h-4 w-4" />
@@ -579,7 +546,7 @@ export default function TrainersPage() {
                       >
                         อัปเดตล่าสุด
                         {sortField === "updated_at" ? (
-                          sortBy === "newest" ? (
+                          sortBy === "desc" ? (
                             <ArrowDown className="ml-1 h-4 w-4" />
                           ) : (
                             <ArrowUp className="ml-1 h-4 w-4" />
@@ -644,7 +611,7 @@ export default function TrainersPage() {
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
                             <Dialog 
-                              key={`edit-dialog-${trainer.id}`}
+                              key={trainer.id}
                               open={editingTrainer?.id === trainer.id} 
                               onOpenChange={(open) => {
                                 if (!open) {

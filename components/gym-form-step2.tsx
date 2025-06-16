@@ -137,7 +137,7 @@ export function GymFormStep2({
       };
 
       if (gym) {
-        // Update logic - for edit mode, don't close the dialog automatically
+        // Update logic - for edit mode
         await onSave(completeFormData);
         if (gym.id) {
           await handleTrainerUpdates(gym.id);
@@ -148,15 +148,16 @@ export function GymFormStep2({
         });
         setOriginalTrainers(completeTrainerList);
         
-        // For edit mode: trigger the completion callback
+        // For edit mode: close the dialog and refresh data
         if (onSuccess) {
           onSuccess();
         }
       } else {
-        // Create logic - for create mode, let the onSubmit handler manage everything
+        // Create logic - for create mode
         if (onSubmit) {
           await onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
         }
+        // For create mode, onSubmit should handle closing the dialog
       }
     } catch (error) {
       console.error("Error submitting form:", error);

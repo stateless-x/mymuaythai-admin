@@ -40,7 +40,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
 // Gyms API
 export const gymsApi = {
-  // Get all gyms
+  // Get all gyms - uses search endpoint if searchTerm is provided
   getAll: async (params?: Record<string, any>) => {
     const query = new URLSearchParams()
     if (params) {
@@ -50,14 +50,17 @@ export const gymsApi = {
         }
       })
     }
-    const response = await apiRequest(`/api/gyms?${query.toString()}`);
+    
+    // Use search endpoint if searchTerm is provided, otherwise use regular endpoint
+    const endpoint = params?.searchTerm ? `/api/gyms/search?${query.toString()}` : `/api/gyms?${query.toString()}`;
+    const response = await apiRequest(endpoint);
     return response;
   },
   
   // Get gym by ID
-  getById: (id: string) => {
+  getById: (id: string, includeInactive: boolean = true) => {
     const params = new URLSearchParams({
-      includeInactive: "true",
+      includeInactive: String(includeInactive),
     })
     return apiRequest(`/api/gyms/${id}?${params.toString()}`)
   },  
@@ -82,24 +85,54 @@ export const gymsApi = {
 
 // Trainers API
 export const trainersApi = {
-  // Get all trainers
+  // Get all trainers - uses search endpoint if searchTerm is provided
   getAll: async (params?: Record<string, any>) => {
     const query = new URLSearchParams()
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          query.append(key, String(value))
+    let endpoint: string;
+    
+    if (params?.searchTerm) {
+      // For search, use /api/trainers/search/:query endpoint
+      // Remove searchTerm from query params since it goes in the URL
+      const { searchTerm, ...otherParams } = params;
+      
+      if (otherParams) {
+        Object.entries(otherParams).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            query.append(key, String(value))
+          }
+        })
+      }
+      
+      endpoint = `/api/trainers/search/${encodeURIComponent(searchTerm)}?${query.toString()}`;
+    } else {
+      // For regular listing, use /api/trainers endpoint
+      if (params) {
+        // Map searchTerm to search for regular endpoint
+        const { searchTerm, ...otherParams } = params;
+        
+        Object.entries(otherParams).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            query.append(key, String(value))
+          }
+        })
+        
+        // Add search parameter if searchTerm was provided
+        if (searchTerm) {
+          query.append('search', String(searchTerm))
         }
-      })
+      }
+      
+      endpoint = `/api/trainers?${query.toString()}`;
     }
-    const response = await apiRequest(`/api/trainers?${query.toString()}`);
+    
+    const response = await apiRequest(endpoint);
     return response;
   },
   
   // Get trainer by ID
-  getById: (id: string) => {
+  getById: (id: string, includeInactive: boolean = true) => {
     const params = new URLSearchParams({
-      includeInactive: "true",
+      includeInactive: String(includeInactive),
     })
     return apiRequest(`/api/trainers/${id}?${params.toString()}`)
   },

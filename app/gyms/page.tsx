@@ -39,6 +39,7 @@ import type { Gym } from "@/lib/types"
 import { gymsApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
+import { Switch } from "@/components/ui/switch"
 
 function PaginationControls({ page, total, pageSize, onPageChange }: { page: number, total: number, pageSize: number, onPageChange: (page: number) => void }) {
   const totalPages = Math.ceil(total / pageSize)
@@ -97,9 +98,9 @@ export default function GymsPage() {
   const [gyms, setGyms] = useState<Gym[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [includeInactive, setIncludeInactive] = useState(true)
   const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest")
+  const [sortBy, setSortBy] = useState<"desc" | "asc">("desc")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -112,7 +113,6 @@ export default function GymsPage() {
     total: 0,
   })
 
-  // Single useEffect to handle all data fetching
   useEffect(() => {
     const fetchData = async () => {
       // Show search loading only if we're searching, not on initial load
@@ -124,42 +124,22 @@ export default function GymsPage() {
       
       try {
         const params = {
-          page: pagination.page, // Use the current page as-is
+          page: pagination.page,
           pageSize: pagination.pageSize,
-          searchTerm: debouncedSearchTerm,
-          is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
+          searchTerm: debouncedSearchTerm || undefined,
+          includeInactive: includeInactive,
           sortField: sortField,
-          sortBy: sortBy === 'newest' ? 'desc' : 'asc',
+          sortBy: sortBy,
         }
         
         const response = await gymsApi.getAll(params);
         
-        let filteredGyms = response.data || [];
+        // Remove client-side filtering - let backend handle everything
+        const gymsData = response.data || [];
+        setGyms(gymsData);
         
-        // Client-side filtering as fallback if backend search doesn't work properly
-        if (debouncedSearchTerm) {
-          const searchLower = debouncedSearchTerm.toLowerCase();
-          filteredGyms = filteredGyms.filter((gym: Gym) => 
-            gym.name_th?.toLowerCase().includes(searchLower) ||
-            gym.name_en?.toLowerCase().includes(searchLower) ||
-            gym.email?.toLowerCase().includes(searchLower) ||
-            gym.phone?.includes(debouncedSearchTerm) ||
-            gym.province?.name_th?.toLowerCase().includes(searchLower) ||
-            gym.province?.name_en?.toLowerCase().includes(searchLower)
-          );
-        }
-        
-        // Status filtering as fallback
-        if (statusFilter !== 'all') {
-          filteredGyms = filteredGyms.filter((gym: Gym) => 
-            statusFilter === 'active' ? gym.is_active : !gym.is_active
-          );
-        }
-        
-        setGyms(filteredGyms);
-        
-        // Use the pagination from response, but ensure it makes sense
-        const totalFromResponse = response.pagination?.total || filteredGyms.length;
+        // Use the pagination from response
+        const totalFromResponse = response.pagination?.total || 0;
         const pageSizeFromResponse = response.pagination?.pageSize || pagination.pageSize;
         const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
         
@@ -175,12 +155,12 @@ export default function GymsPage() {
         
         // If we had to adjust the page, refetch with the correct page
         if (validPage !== pagination.page && totalPages > 0) {
-          // Don't create infinite loop - only refetch if we haven't already adjusted
           return;
         }
         
         setError(null)
       } catch (err) {
+        console.error('Error fetching gyms:', err)
         setError("Failed to fetch gyms")
         toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
       } finally {
@@ -190,41 +170,17 @@ export default function GymsPage() {
     }
 
     fetchData()
-  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, statusFilter, sortField, sortBy])
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, sortField, sortBy])
 
-  // Only reset to page 1 when search term or filters change (not when just navigating pages)
-  const [previousSearchTerm, setPreviousSearchTerm] = useState("")
-  const [previousStatusFilter, setPreviousStatusFilter] = useState<"all" | "active" | "inactive">("all")
-  const [previousSortField, setPreviousSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [previousSortBy, setPreviousSortBy] = useState<"newest" | "oldest">("newest")
-
+  // Reset to page 1 when search term or filters change
   useEffect(() => {
-    // Check if search criteria actually changed
-    const searchChanged = debouncedSearchTerm !== previousSearchTerm
-    const statusChanged = statusFilter !== previousStatusFilter
-    const sortFieldChanged = sortField !== previousSortField
-    const sortByChanged = sortBy !== previousSortBy
-
-    if (searchChanged || statusChanged || sortFieldChanged || sortByChanged) {
-      // Only reset to page 1 if we're not already on page 1
-      if (pagination.page !== 1) {
-        setPagination(prev => ({ ...prev, page: 1 }))
-      }
-      
-      // Update previous values
-      setPreviousSearchTerm(debouncedSearchTerm)
-      setPreviousStatusFilter(statusFilter)
-      setPreviousSortField(sortField)
-      setPreviousSortBy(sortBy)
+    if (pagination.page !== 1) {
+      setPagination(prev => ({ ...prev, page: 1 }))
     }
-  }, [debouncedSearchTerm, statusFilter, sortField, sortBy, previousSearchTerm, previousStatusFilter, previousSortField, previousSortBy, pagination.page])
+  }, [debouncedSearchTerm, includeInactive, sortField, sortBy])
 
   const handlePageChange = useCallback((newPage: number) => {
     setPagination(p => ({ ...p, page: newPage }));
-  }, []);
-
-  const handleFilterChange = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
-    setter(value);
   }, []);
 
   const refreshData = useCallback(() => {
@@ -280,21 +236,49 @@ export default function GymsPage() {
 
   const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     try {
-      await gymsApi.create(gymData);
+      const newGym = await gymsApi.create(gymData);
+      
+      // IMPORTANT: Clear all dialog states FIRST
       setIsAddDialogOpen(false);
-      toast.success("เพิ่มยิมสำเร็จ");
-      refreshData();
+      setEditingGym(null);
+      
+      // Conservative approach: Only update total count, no array manipulation
+      setPagination(prev => ({ ...prev, total: prev.total + 1 }))
+      
+      toast.success("เพิ่มยิมสำเร็จ - รีเฟรชหน้าเพื่อดูยิมใหม่", {
+        action: {
+          label: "รีเฟรช",
+          onClick: () => refreshData()
+        }
+      });
     } catch (err) {
       toast.error("ไม่สามารถเพิ่มยิมได้");
+      // On error, refresh to get correct state
+      refreshData();
     }
   };
 
   const savePartialGymData = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        const updatedGym = await gymsApi.update(editingGym.id, gymData)
+        const response = await gymsApi.update(editingGym.id, gymData)
+        
+        // Extract the actual gym data from the response
+        const updatedGym = response.data || response;
+        
+        // Update the gym in the list
+        const currentEditingId = editingGym.id
+        setGyms(prev => prev.map(gym => 
+          gym.id === currentEditingId ? updatedGym : gym
+        ))
+        
+        // Update the editingGym with the new data so the form stays populated
+        setEditingGym(updatedGym)
+        
         return updatedGym
       } catch (err) {
+        // On error, refresh to get correct state
+        refreshData()
         throw err 
       }
     }
@@ -302,38 +286,46 @@ export default function GymsPage() {
 
   const handleEditComplete = () => {
     setEditingGym(null)
+    // Refresh data to show updated information
     refreshData()
   }
 
   const handlePartialSaveSuccess = () => {
-    refreshData()
+    // For step 1 save success, don't close dialog, just show success message
+    // Dialog should remain open for user to continue editing or manually close
   }
 
   const handleDeleteGym = async (gymId: string) => {
     try {
       await gymsApi.delete(gymId)
-      refreshData()
+      
+      // Simple optimistic update: Always remove from current view
+      setGyms(prev => prev.filter(gym => gym.id !== gymId))
+      setPagination(prev => ({ ...prev, total: prev.total - 1 }))
+      
       toast.success("ลบยิมสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบยิมได้")
+      // On error, refresh to get correct state
+      refreshData()
     }
   }
 
   const toggleCreatedSort = () => {
     if (sortField === "created_at") {
-      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+      setSortBy(sortBy === "desc" ? "asc" : "desc")
     } else {
       setSortField("created_at")
-      setSortBy("newest")
+      setSortBy("desc")
     }
   }
 
   const toggleUpdatedSort = () => {
     if (sortField === "updated_at") {
-      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+      setSortBy(sortBy === "desc" ? "asc" : "desc")
     } else {
       setSortField("updated_at")
-      setSortBy("newest")
+      setSortBy("desc")
     }
   }
 
@@ -405,7 +397,7 @@ export default function GymsPage() {
               </Dialog>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between gap-4 mb-6">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 {isSearching && (
@@ -418,16 +410,18 @@ export default function GymsPage() {
                   className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="กรองตามสถานะ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="active">เปิดใช้งาน</SelectItem>
-                  <SelectItem value="inactive">ปิดการใช้งาน</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-inactive"
+                    checked={includeInactive}
+                    onCheckedChange={setIncludeInactive}
+                  />
+                  <label htmlFor="include-inactive" className="text-sm font-medium">
+                    แสดงยิมที่ปิดการใช้งาน
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="border rounded-lg">
@@ -447,7 +441,7 @@ export default function GymsPage() {
                       >
                         วันที่ลงทะเบียน
                         {sortField === "created_at" ? (
-                          sortBy === "newest" ? (
+                          sortBy === "desc" ? (
                             <ArrowDown className="ml-1 h-4 w-4" />
                           ) : (
                             <ArrowUp className="ml-1 h-4 w-4" />
@@ -465,7 +459,7 @@ export default function GymsPage() {
                       >
                         อัปเดตล่าสุด
                         {sortField === "updated_at" ? (
-                          sortBy === "newest" ? (
+                          sortBy === "desc" ? (
                             <ArrowDown className="ml-1 h-4 w-4" />
                           ) : (
                             <ArrowUp className="ml-1 h-4 w-4" />
@@ -532,7 +526,7 @@ export default function GymsPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">
                           <Dialog 
-                            key={`edit-dialog-${gym.id}`}
+                            key={`edit-${gym.id}`}
                             open={editingGym?.id === gym.id} 
                             onOpenChange={(open) => {
                               if (!open) {
@@ -545,6 +539,7 @@ export default function GymsPage() {
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditingGym(gym)
+                                setIsAddDialogOpen(false) // Ensure add dialog is closed
                               }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -556,11 +551,12 @@ export default function GymsPage() {
                             >
                               <div className="p-6 pb-4 border-b flex-shrink-0">
                                 <DialogHeader>
-                                  <DialogTitle>แก้ไขยิม</DialogTitle>
+                                  <DialogTitle>แก้ไขยิม: {gym.name_th}</DialogTitle>
                                 </DialogHeader>
                               </div>
                               <div className="flex-1 overflow-y-auto px-6 pb-6">
                                 <GymForm 
+                                  key={`form-${gym.id}`}
                                   gym={editingGym || undefined} 
                                   onCancel={() => closeEditDialog()}
                                   onSavePartial={savePartialGymData}
