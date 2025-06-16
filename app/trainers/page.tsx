@@ -57,6 +57,9 @@ export default function TrainersPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
+  // Add a refresh trigger to force re-fetching
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 10,
@@ -130,7 +133,7 @@ export default function TrainersPage() {
     }
 
     fetchData()
-  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, freelancerFilter, sortField, sortBy])
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, freelancerFilter, sortField, sortBy, refreshTrigger])
 
   // Reset to page 1 when search term or filters change
   useEffect(() => {
@@ -148,8 +151,8 @@ export default function TrainersPage() {
   }, []);
 
   const refreshData = useCallback(() => {
-    // Force a re-fetch by updating a dependency
-    setPagination(prev => ({ ...prev }));
+    // Force a re-fetch by incrementing the refresh trigger
+    setRefreshTrigger(prev => prev + 1);
   }, []);
 
   const closeEditDialog = () => {
@@ -339,15 +342,10 @@ export default function TrainersPage() {
       setIsAddDialogOpen(false)
       setEditingTrainer(null)
       
-      // Conservative approach: Only update total count, no array manipulation
-      setPagination(prev => ({ ...prev, total: prev.total + 1 }))
+      // Automatically refresh data to get the latest state from server
+      refreshData()
       
-      toast.success("เพิ่มครูมวยสำเร็จ - รีเฟรชหน้าเพื่อดูครูมวยใหม่", {
-        action: {
-          label: "รีเฟรช",
-          onClick: () => refreshData()
-        }
-      })
+      toast.success("เพิ่มครูมวยสำเร็จ")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "ไม่สามารถเพิ่มครูมวยได้"
       toast.error(errorMessage)
@@ -366,14 +364,10 @@ export default function TrainersPage() {
         const updatedTrainer = response.data || response
         
         // IMPORTANT: Clear editing state FIRST to prevent dialog reopening
-        const currentEditingId = editingTrainer.id
         setEditingTrainer(null)
         
-        // Conservative approach: Just update the specific trainer in place if it exists
-        // This is safer than complex filtering logic
-        setTrainers(prev => prev.map(trainer => 
-          trainer.id === currentEditingId ? updatedTrainer : trainer
-        ))
+        // Automatically refresh data to get the latest state from server
+        refreshData()
         
         toast.success("แก้ไขครูมวยสำเร็จ")
       } catch (err) {
