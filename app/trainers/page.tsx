@@ -330,7 +330,10 @@ export default function TrainersPage() {
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
       const apiData = transformFormDataToApi(formData)
-      const newTrainer = await trainersApi.create(apiData)
+      const response = await trainersApi.create(apiData)
+      
+      // Extract the actual trainer data from the response
+      const newTrainer = response.data || response
       
       // IMPORTANT: Clear all dialog states FIRST
       setIsAddDialogOpen(false)
@@ -357,7 +360,10 @@ export default function TrainersPage() {
     if (editingTrainer) {
       try {
         const apiData = transformFormDataToApi(formData)
-        const updatedTrainer = await trainersApi.update(editingTrainer.id, apiData)
+        const response = await trainersApi.update(editingTrainer.id, apiData)
+        
+        // Extract the actual trainer data from the response
+        const updatedTrainer = response.data || response
         
         // IMPORTANT: Clear editing state FIRST to prevent dialog reopening
         const currentEditingId = editingTrainer.id
