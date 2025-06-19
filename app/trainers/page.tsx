@@ -40,7 +40,7 @@ import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay, trimFormData } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Switch } from "@/components/ui/switch"
-import { tagService } from "@/lib/tagService"
+import { tagsApi } from "@/lib/api"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
@@ -768,8 +768,11 @@ const convertTagSlugsToTagObjects = async (tagSlugs: string[]): Promise<Tag[]> =
     // Get tag objects from slugs
     const tagPromises = tagSlugs.map(async (slug) => {
       try {
-        const response = await tagService.getTagBySlug(slug);
-        return response.data;
+        // Search for tags and find the one with matching slug
+        const response = await tagsApi.getAll({ searchTerm: slug, pageSize: 10 });
+        const tags = response.data?.items || response.data || response;
+        const foundTag = tags.find((tag: any) => tag.slug === slug);
+        return foundTag || null;
       } catch (err) {
         console.error(`Failed to get tag with slug: ${slug}`, err);
         return null;

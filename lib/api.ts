@@ -155,10 +155,20 @@ export const trainersApi = {
 
 // Tags API
 export const tagsApi = {
-  // Get all tags
-  getAll: async () => {
-    const response = await apiRequest("/api/tags");
-    return response.data?.items || response.data || response;
+  // Get all tags with pagination and search
+  getAll: async (params?: Record<string, any>) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value))
+        }
+      })
+    }
+    
+    const endpoint = `/api/tags?${query.toString()}`;
+    const response = await apiRequest(endpoint);
+    return response;
   },
   
   // Get tag by ID

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Button } from "@/components/ui/button"
@@ -18,28 +18,163 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Plus, Search, Edit, Trash2, Loader2, Hash, Tag as TagIcon, Users, Building } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Loader2, Hash, Tag as TagIcon, Users, Building, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { toast } from "sonner"
 import type { Tag } from "@/lib/types"
-import { tagService } from "@/lib/tagService"
+import { tagsApi } from "@/lib/api"
+import { useDebounce } from "@/hooks/use-debounce"
 
 interface TagFormData {
   name_th: string
   name_en: string
 }
 
+// Pagination controls component
+function PaginationControls({ page, total, pageSize, onPageChange }: { 
+  page: number, 
+  total: number, 
+  pageSize: number, 
+  onPageChange: (page: number) => void 
+}) {
+  const totalPages = Math.ceil(total / pageSize)
+  const shouldShowPagination = total > pageSize || totalPages > 1
+
+  if (!shouldShowPagination) {
+    return null
+  }
+
+  return (
+    <div className="flex items-center justify-between pt-4">
+      <div className="text-sm text-muted-foreground">
+        หน้า {page} จาก {totalPages} (ทั้งหมด {total} รายการ)
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(1)}
+          disabled={page === 1}
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          className="h-8 w-8 p-0"
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Move TagForm component outside to prevent re-creation on each render
+const TagForm = ({ 
+  formData, 
+  setFormData, 
+  onSubmit, 
+  onCancel, 
+  editingTag 
+}: {
+  formData: TagFormData
+  setFormData: (data: TagFormData) => void
+  onSubmit: (e: React.FormEvent) => void
+  onCancel: () => void
+  editingTag: Tag | null
+}) => (
+  <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
+    <div className="space-y-2">
+      <Label htmlFor="name-th">ชื่อแท็ก (ไทย) *</Label>
+      <Input
+        id="name-th"
+        name="name-th"
+        value={formData.name_th}
+        onChange={(e) => setFormData({ ...formData, name_th: e.target.value })}
+        placeholder="เช่น มวยเข่า"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck="false"
+        required
+      />
+    </div>
+    
+    <div className="space-y-2">
+      <Label htmlFor="name-en">ชื่อแท็ก (อังกฤษ) *</Label>
+      <Input
+        id="name-en"
+        name="name-en"
+        value={formData.name_en}
+        onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+        placeholder="e.g. Muay Khao"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck="false"
+        required
+      />
+    </div>
+
+    <div className="flex justify-end space-x-2">
+      <Button 
+        type="button" 
+        variant="outline" 
+        onClick={onCancel}
+      >
+        ยกเลิก
+      </Button>
+      <Button type="submit">
+        {editingTag ? "อัพเดท" : "เพิ่มแท็ก"}
+      </Button>
+    </div>
+  </form>
+)
+
 export default function TagsPage() {
-  const [tags, setTags] = useState<Tag[]>([])
-  const [filteredTags, setFilteredTags] = useState<Tag[]>([])
+  const [tags, setTags] = useState<(Tag & { gymCount: number, trainerCount: number })[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+  const [sortField, setSortField] = useState<"name_th" | "name_en" | "id">("name_en")
+  const [sortBy, setSortBy] = useState<"desc" | "asc">("asc")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTag, setEditingTag] = useState<Tag | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+  })
 
   // Form state
   const [formData, setFormData] = useState<TagFormData>({
@@ -47,55 +182,70 @@ export default function TagsPage() {
     name_en: ""
   })
 
-  // Fetch tags from API
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        setIsLoading(true)
-        const response = await tagService.getTagsWithStats()
-        setTags(response)
-        setFilteredTags(response)
-        setError(null)
-      } catch (err) {
-        setError("Failed to fetch tags")
-        console.error("Error fetching tags:", err)
-        toast.error("ไม่สามารถโหลดข้อมูลแท็กได้")
-      } finally {
-        setIsLoading(false)
-      }
+  const fetchTags = async () => {
+    // Show search loading only if we're searching, not on initial load
+    if (debouncedSearchTerm) {
+      setIsSearching(true)
+    } else {
+      setIsLoading(true)
     }
+    
+    try {
+      const params = {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        searchTerm: debouncedSearchTerm || undefined,
+        sortField: sortField,
+        sortBy: sortBy,
+      }
+      
+      const response = await tagsApi.getAll(params);
+      
+      // Handle response data structure
+      const tagsData = response.data?.items || response.data || response;
+      setTags(tagsData);
+      
+      // Use the pagination from response
+      const totalFromResponse = response.data?.total || 0;
+      const pageSizeFromResponse = response.data?.pageSize || pagination.pageSize;
+      const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
+      
+      // If current page exceeds available pages, go to the last available page
+      const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
+      
+      setPagination(prev => ({ 
+        ...prev, 
+        page: validPage,
+        total: totalFromResponse,
+        pageSize: pageSizeFromResponse
+      }));
+      
+      setError(null)
+    } catch (err) {
+      console.error('Error fetching tags:', err)
+      setError("Failed to fetch tags")
+      toast.error("ไม่สามารถโหลดข้อมูลแท็กได้")
+    } finally {
+      setIsLoading(false)
+      setIsSearching(false)
+    }
+  }
+  useEffect(() => {
+
 
     fetchTags()
-  }, [])
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, sortField, sortBy])
 
-  // Search functionality with debouncing
+  // Reset to page 1 when search term or filters change
   useEffect(() => {
-    const searchTags = async () => {
-      if (!searchTerm.trim()) {
-        setFilteredTags(tags)
-        return
-      }
-
-      setIsSearching(true)
-      try {
-        const searchResults = await tagService.searchTags(searchTerm, 100)
-        setFilteredTags(searchResults)
-      } catch (err) {
-        console.error("Search error:", err)
-        // Fallback to local filtering
-        const localFiltered = tags.filter((tag) => {
-          const searchText = `${tag.name_th} ${tag.name_en} ${tag.slug}`.toLowerCase()
-          return searchText.includes(searchTerm.toLowerCase())
-        })
-        setFilteredTags(localFiltered)
-      } finally {
-        setIsSearching(false)
-      }
+    if (pagination.page !== 1) {
+      setPagination(prev => ({ ...prev, page: 1 }))
     }
+  }, [debouncedSearchTerm, sortField, sortBy])
 
-    const debounceTimer = setTimeout(searchTags, 300)
-    return () => clearTimeout(debounceTimer)
-  }, [searchTerm, tags])
+  const handlePageChange = useCallback((newPage: number) => {
+    setPagination(p => ({ ...p, page: newPage }));
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -110,10 +260,7 @@ export default function TagsPage() {
   }
 
   const handleOpenEditDialog = (tag: Tag) => {
-    setFormData({
-      name_th: tag.name_th,
-      name_en: tag.name_en
-    })
+    resetForm() // Start with empty form data
     setEditingTag(tag)
   }
 
@@ -132,21 +279,21 @@ export default function TagsPage() {
 
     try {
       if (editingTag) {
-        // Update existing tag
-        const response = await tagService.updateTag(editingTag.id, formData)
+        const response = await tagsApi.update(editingTag.id, formData)
         const updatedTag = response.data
         setTags(tags.map((tag) => (tag.id === editingTag.id ? { ...updatedTag, gymCount: tag.gymCount, trainerCount: tag.trainerCount } : tag)))
         setEditingTag(null)
         toast.success("แก้ไขแท็กสำเร็จ")
       } else {
-        // Create new tag
-        const response = await tagService.createTag(formData)
-        const newTag = { ...response.data, gymCount: 0, trainerCount: 0 }
-        setTags([...tags, newTag])
+        // Create new tag - refresh the whole list to get updated pagination
+        await tagsApi.create(formData)
         setIsAddDialogOpen(false)
         toast.success("เพิ่มแท็กสำเร็จ")
+        // Refresh the current page or go to first page if empty
+        setPagination(prev => ({ ...prev, page: 1 }))
       }
-      resetForm()
+      resetForm();
+      fetchTags();
     } catch (err) {
       console.error("Error saving tag:", err)
       const errorMessage = err instanceof Error ? err.message : "Unknown error"
@@ -156,9 +303,10 @@ export default function TagsPage() {
 
   const handleDeleteTag = async (tagId: number) => {
     try {
-      await tagService.deleteTag(tagId)
-      setTags(tags.filter((tag) => tag.id !== tagId))
+      await tagsApi.delete(tagId)
       toast.success("ลบแท็กสำเร็จ")
+      // Refresh current page to get updated data
+      setPagination(prev => ({ ...prev }))
     } catch (err) {
       console.error("Error deleting tag:", err)
       const errorMessage = err instanceof Error ? err.message : "Unknown error"
@@ -170,45 +318,6 @@ export default function TagsPage() {
     setEditingTag(null)
     resetForm()
   }
-
-  const TagForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name-th">ชื่อแท็ก (ไทย) *</Label>
-        <Input
-          id="name-th"
-          value={formData.name_th}
-          onChange={(e) => setFormData({ ...formData, name_th: e.target.value })}
-          placeholder="เช่น มวยเข่า"
-          required
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="name-en">ชื่อแท็ก (อังกฤษ) *</Label>
-        <Input
-          id="name-en"
-          value={formData.name_en}
-          onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
-          placeholder="e.g. Muay Khao"
-          required
-        />
-      </div>
-
-      <div className="flex justify-end space-x-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={editingTag ? closeEditDialog : () => setIsAddDialogOpen(false)}
-        >
-          ยกเลิก
-        </Button>
-        <Button type="submit">
-          {editingTag ? "อัพเดท" : "เพิ่มแท็ก"}
-        </Button>
-      </div>
-    </form>
-  )
 
   return (
     <ProtectedRoute>
@@ -232,7 +341,13 @@ export default function TagsPage() {
                 <DialogHeader>
                   <DialogTitle>เพิ่มแท็กใหม่</DialogTitle>
                 </DialogHeader>
-                <TagForm />
+                <TagForm 
+                  formData={formData}
+                  setFormData={setFormData}
+                  onSubmit={handleSubmit}
+                  onCancel={() => setIsAddDialogOpen(false)}
+                  editingTag={editingTag}
+                />
               </DialogContent>
             </Dialog>
           </div>
@@ -241,25 +356,50 @@ export default function TagsPage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Hash className="mr-2 h-5 w-5" />
-                รายการแท็ก ({filteredTags.length})
+                รายการแท็ก ({pagination.total})
               </CardTitle>
               <CardDescription>
                 แท็กที่ใช้สำหรับจัดหมวดหมู่และค้นหายิมและครูมวย
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="ค้นหาแท็ก..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm pl-8"
-                  />
-                  {isSearching && (
-                    <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="ค้นหาแท็ก..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="max-w-sm pl-8"
+                    />
+                    {isSearching && (
+                      <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Select value={sortField} onValueChange={(value: "name_th" | "name_en" | "id") => setSortField(value)}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="เรียงตาม" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name_en">ชื่ออังกฤษ</SelectItem>
+                      <SelectItem value="name_th">ชื่อไทย</SelectItem>
+                      <SelectItem value="id">ID</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={sortBy} onValueChange={(value: "asc" | "desc") => setSortBy(value)}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="ลำดับ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">น้อย → มาก</SelectItem>
+                      <SelectItem value="desc">มาก → น้อย</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -271,7 +411,7 @@ export default function TagsPage() {
                 <div className="text-center py-8 text-red-500">
                   <p>เกิดข้อผิดพลาด: {error}</p>
                 </div>
-              ) : filteredTags.length === 0 ? (
+              ) : tags.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <TagIcon className="mx-auto h-12 w-12 mb-4" />
                   <p>ไม่พบแท็กที่ค้นหา</p>
@@ -290,7 +430,7 @@ export default function TagsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredTags.map((tag) => (
+                      {tags.map((tag) => (
                         <TableRow key={tag.id}>
                           <TableCell className="font-mono text-sm">{tag.id}</TableCell>
                           <TableCell className="font-medium">{tag.name_th}</TableCell>
@@ -323,7 +463,13 @@ export default function TagsPage() {
                                   <DialogHeader>
                                     <DialogTitle>แก้ไขแท็ก</DialogTitle>
                                   </DialogHeader>
-                                  <TagForm />
+                                  <TagForm 
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    onSubmit={handleSubmit}
+                                    onCancel={closeEditDialog}
+                                    editingTag={editingTag}
+                                  />
                                 </DialogContent>
                               </Dialog>
                               
@@ -363,6 +509,13 @@ export default function TagsPage() {
                       ))}
                     </TableBody>
                   </Table>
+                  
+                  <PaginationControls
+                    page={pagination.page}
+                    total={pagination.total}
+                    pageSize={pagination.pageSize}
+                    onPageChange={handlePageChange}
+                  />
                 </div>
               )}
             </CardContent>

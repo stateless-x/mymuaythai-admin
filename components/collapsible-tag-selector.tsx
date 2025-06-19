@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { X, Search, ChevronDown, ChevronRight, Tag as TagIcon, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Tag } from "@/lib/types"
-import { tagService } from "@/lib/tagService"
+import { tagsApi } from "@/lib/api"
 import { useDebounce } from "@/hooks/use-debounce"
 
 interface CollapsibleTagSelectorProps {
@@ -45,7 +45,11 @@ export function CollapsibleTagSelector({
       setError(null)
       
       try {
-        const tags = await tagService.searchTags(debouncedSearchTerm, 50)
+        const response = await tagsApi.getAll({ 
+          searchTerm: debouncedSearchTerm || undefined, 
+          pageSize: 50 
+        })
+        const tags = response.data?.items || response.data || response
         setAvailableTags(tags)
       } catch (err) {
         console.error('Failed to load tags:', err)
@@ -83,8 +87,10 @@ export function CollapsibleTagSelector({
           .filter(slug => !availableTags.find(tag => tag.slug === slug))
           .map(async (slug) => {
             try {
-              const response = await tagService.getTagBySlug(slug)
-              return response.data
+              // We need to search for tags and find the one with matching slug
+              const response = await tagsApi.getAll({ searchTerm: slug, pageSize: 10 })
+              const tags = response.data?.items || response.data || response
+              return tags.find((tag: any) => tag.slug === slug) || null
             } catch (err) {
               console.error(`Failed to load tag with slug: ${slug}`, err)
               return null
