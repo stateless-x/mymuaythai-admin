@@ -91,6 +91,7 @@ export default function TrainersPage() {
           pageSize: pagination.pageSize,
           searchTerm: debouncedSearchTerm || undefined,
           includeInactive: includeInactive,
+          includeClasses: true, // Always include classes to show private classes for freelancers
           isFreelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
           sortField: sortField,
           sortBy: sortBy,

@@ -127,9 +127,10 @@ export const trainersApi = {
   },
   
   // Get trainer by ID
-  getById: (id: string, includeInactive: boolean = true) => {
+  getById: (id: string, includeInactive: boolean = true, includeClasses: boolean = true) => {
     const params = new URLSearchParams({
       includeInactive: String(includeInactive),
+      includeClasses: String(includeClasses),
     })
     return apiRequest(`/api/trainers/${id}?${params.toString()}`)
   },
