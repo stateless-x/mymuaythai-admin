@@ -245,7 +245,6 @@ export default function TagsPage() {
   }
 
   const handleOpenEditDialog = (tag: Tag) => {
-    // Populate form with current tag data
     setFormData({
       name_th: tag.name_th,
       name_en: tag.name_en
@@ -274,12 +273,9 @@ export default function TagsPage() {
         setEditingTag(null)
         toast.success("แก้ไขแท็กสำเร็จ")
       } else {
-        // Create new tag - refresh the whole list to get updated pagination
         await tagsApi.create(formData)
         setIsAddDialogOpen(false)
         toast.success("เพิ่มแท็กสำเร็จ")
-        // Refresh the current page or go to first page if empty
-        setPagination(prev => ({ ...prev, page: 1 }))
       }
       resetForm();
       fetchTags();
@@ -294,8 +290,7 @@ export default function TagsPage() {
     try {
       await tagsApi.delete(tagId)
       toast.success("ลบแท็กสำเร็จ")
-      // Refresh current page to get updated data
-      setPagination(prev => ({ ...prev }))
+      fetchTags();
     } catch (err) {
       console.error("Error deleting tag:", err)
       const errorMessage = err instanceof Error ? err.message : "Unknown error"

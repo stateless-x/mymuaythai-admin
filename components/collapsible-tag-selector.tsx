@@ -177,7 +177,7 @@ export function CollapsibleTagSelector({
                       variant="default"
                       className="text-sm bg-blue-600 hover:bg-blue-700"
                     >
-                      {tag.name_th} / {tag.name_en}
+                      {tag.name_th}
                       {!disabled && (
                         <button
                           type="button"
@@ -262,7 +262,6 @@ export function CollapsibleTagSelector({
                       >
                         <div className="flex flex-col items-start leading-tight">
                           <span className="font-medium">{tag.name_th}</span>
-                          <span className="text-xs opacity-75">{tag.name_en}</span>
                         </div>
                         {isSelected && <X className="ml-1 h-3 w-3" />}
                       </Button>

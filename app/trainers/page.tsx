@@ -482,40 +482,42 @@ export default function TrainersPage() {
               </Dialog>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                {isSearching && (
-                  <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-                <Input
-                  placeholder="ค้นหาครูมวย..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
-                />
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="include-inactive"
-                    checked={includeInactive}
-                    onCheckedChange={setIncludeInactive}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  {isSearching && (
+                    <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  <Input
+                    placeholder="ค้นหาครูมวย..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`pl-8 ${isSearching ? 'pr-8' : ''}`}
                   />
-                  <label htmlFor="include-inactive" className="text-sm font-medium">
-                    แสดงครูมวยที่ปิดการใช้งาน
-                  </label>
                 </div>
-                <Select value={freelancerFilter} onValueChange={handleFilterChange(setFreelancerFilter)}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="กรองตามประเภท" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
-                    <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
-                    <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-4">
+                  <Select value={freelancerFilter} onValueChange={handleFilterChange(setFreelancerFilter)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="กรองตามประเภท" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ครูมวยทั้งหมด</SelectItem>
+                      <SelectItem value="freelancer">ฟรีแลนซ์เท่านั้น</SelectItem>
+                      <SelectItem value="staff">พนักงานเท่านั้น</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="include-inactive"
+                  checked={includeInactive}
+                  onCheckedChange={setIncludeInactive}
+                />
+                <label htmlFor="include-inactive" className="text-sm font-medium">
+                  แสดงครูมวยที่ปิดการใช้งาน
+                </label>
               </div>
             </div>
 
