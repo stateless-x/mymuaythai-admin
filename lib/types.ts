@@ -81,26 +81,15 @@ export interface Gym {
 }
 
 export interface Tag {
-  id: string
+  id: number
+  slug: string
   name_th: string
   name_en: string
-  description?: {
-    th?: string
-    en?: string
-  }
-  category?: "martial-arts" | "location" | "training-type" | "level" | "general"
-  color: string
-  createdDate?: string
-  usageCount?: number
+  gymCount?: number
+  trainerCount?: number
 }
 
-export const TAG_CATEGORIES = [
-  { value: "martial-arts", label: "ประเภทศิลปะการต่อสู้", color: "#ef4444" },
-  { value: "location", label: "สถานที่", color: "#3b82f6" },
-  { value: "training-type", label: "ประเภทการฝึก", color: "#10b981" },
-  { value: "level", label: "ระดับ", color: "#f59e0b" },
-  { value: "general", label: "ทั่วไป", color: "#8b5cf6" },
-] as const
+
 
 export const FACILITY_OPTIONS = [
   "Free Weights",

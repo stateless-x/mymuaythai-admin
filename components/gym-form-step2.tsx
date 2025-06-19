@@ -8,7 +8,8 @@ import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector";
 import { TrainerSelector, TrainerSelectorRef } from "@/components/trainer-selector";
 import { batchUpdateTrainerGymAssociations } from "@/lib/api";
 import { trimFormData } from "@/lib/utils/form-helpers";
-import type { Gym, Trainer } from "@/lib/types";
+import { tagService } from "@/lib/tagService";
+import type { Gym, Trainer, Tag } from "@/lib/types";
 
 interface GymFormStep2Props {
   gym?: Gym;
@@ -59,6 +60,32 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   return response.json();
 };
 
+// Helper function to convert tag slugs to tag objects with IDs
+const convertTagSlugsToTagObjects = async (tagSlugs: string[]): Promise<Tag[]> => {
+  if (!tagSlugs || tagSlugs.length === 0) {
+    return [];
+  }
+  
+  try {
+    // Get tag objects from slugs
+    const tagPromises = tagSlugs.map(async (slug) => {
+      try {
+        const response = await tagService.getTagBySlug(slug);
+        return response.data;
+      } catch (err) {
+        console.error(`Failed to get tag with slug: ${slug}`, err);
+        return null;
+      }
+    });
+    
+    const tags = await Promise.all(tagPromises);
+    return tags.filter((tag): tag is Tag => tag !== null);
+  } catch (error) {
+    console.error('Error converting tag slugs to objects:', error);
+    return [];
+  }
+};
+
 export function GymFormStep2({
   gym,
   initialData,
@@ -68,10 +95,28 @@ export function GymFormStep2({
   onCancel,
   onSuccess,
 }: GymFormStep2Props) {
+  // Helper function to extract tag slugs from tag objects or use as-is if already slugs
+  const getTagSlugs = (tags: any[]): string[] => {
+    if (!tags || !Array.isArray(tags)) return [];
+    
+    return tags.map((tag: any) => {
+      // If tag is an object with slug property, extract the slug
+      if (typeof tag === 'object' && tag.slug) {
+        return tag.slug;
+      }
+      // If tag is already a string (slug), use as-is
+      if (typeof tag === 'string') {
+        return tag;
+      }
+      // Fallback: should not happen but handle gracefully
+      return '';
+    }).filter(slug => slug !== ''); // Remove empty slugs
+  };
+
   const [formData, setFormData] = useState({
     ...initialData,
     images: gym?.images || [],
-    tags: gym?.tags || [],
+    tags: getTagSlugs(gym?.tags || []), // Extract tag slugs from backend data
   });
   
   const [selectedTrainers, setSelectedTrainers] = useState<Trainer[]>([]);
@@ -88,7 +133,7 @@ export function GymFormStep2({
     setFormData({
       ...initialData,
       images: gym?.images || [],
-      tags: gym?.tags || [],
+      tags: getTagSlugs(gym?.tags || []), // Extract tag slugs from backend data
     })
   }, [gym, initialData])
 
@@ -135,11 +180,22 @@ export function GymFormStep2({
       console.log("- completeTrainerList:", completeTrainerList);
       console.log("- completeTrainerIds:", completeTrainerIds);
 
-      const completeFormData = trimFormData({
+      // Convert tag slugs to tag objects for backend submission
+      const tagObjects = await convertTagSlugsToTagObjects(formData.tags || []);
+      
+      console.log("DEBUG - Tag conversion:");
+      console.log("- formData.tags (slugs):", formData.tags);
+      console.log("- tagObjects:", tagObjects);
+
+      // Create form data with proper backend format
+      const backendFormData = {
         ...initialData,
         ...formData,
+        tags: tagObjects, // Use tag objects for backend
         associatedTrainers: completeTrainerIds,
-      });
+      };
+
+      const completeFormData = trimFormData(backendFormData);
 
       console.log("DEBUG - Complete form data being submitted:");
       console.log("- initialData:", initialData);
@@ -149,7 +205,7 @@ export function GymFormStep2({
 
       if (gym) {
         // Update logic - for edit mode
-        await onSave(completeFormData);
+        await onSave(completeFormData as any); // Cast to any for backend submission with tag objects
         if (gym.id) {
           await handleTrainerUpdates(gym.id);
         }
@@ -167,7 +223,7 @@ export function GymFormStep2({
         // Create logic - for create mode
         console.log("DEBUG - Entering create mode, calling onSubmit with:", completeFormData);
         if (onSubmit) {
-          await onSubmit(completeFormData as Omit<Gym, "id" | "joinedDate">);
+          await onSubmit(completeFormData as any); // Cast to any for backend submission with tag objects
         }
         // For create mode, onSubmit should handle closing the dialog
       }

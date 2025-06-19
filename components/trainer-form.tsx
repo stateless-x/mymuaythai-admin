@@ -61,7 +61,7 @@ export interface TrainerFormData {
   phone: string
   status: "active" | "inactive"
   province_id: number | null
-  tags: string[]
+  tags: string[] // Array of tag slugs
   isFreelancer: boolean
   bio: { th: string; en: string }
   lineId: string
@@ -78,6 +78,24 @@ export interface TrainerFormProps {
 }
 
 export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: TrainerFormProps) {
+  // Transform tags: if they are tag objects, extract slugs; if they are already slugs, use as-is
+  const getTagSlugs = (tags: any[]): string[] => {
+    if (!tags || !Array.isArray(tags)) return [];
+    
+    return tags.map((tag: any) => {
+      // If tag is an object with slug property, extract the slug
+      if (typeof tag === 'object' && tag.slug) {
+        return tag.slug;
+      }
+      // If tag is already a string (slug), use as-is
+      if (typeof tag === 'string') {
+        return tag;
+      }
+      // Fallback: should not happen but handle gracefully
+      return '';
+    }).filter(slug => slug !== ''); // Remove empty slugs
+  };
+
   const [formData, setFormData] = useState<TrainerFormData>({
     firstName: {
       th: trainer?.firstName?.th || trainer?.first_name_th || "",
@@ -91,7 +109,7 @@ export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: Tra
     phone: trainer?.phone || "",
     status: trainer?.status || (trainer?.is_active !== undefined ? (trainer.is_active ? "active" : "inactive") : "active"),
     province_id: trainer?.province_id || trainer?.province?.id || null,
-    tags: trainer?.tags || [],
+    tags: getTagSlugs(trainer?.tags || []), // Extract tag slugs from backend data
     isFreelancer: trainer?.isFreelancer !== undefined ? trainer.isFreelancer : (trainer?.is_freelance || false),
     bio: {
       th: trainer?.bio?.th || trainer?.bio_th || "",

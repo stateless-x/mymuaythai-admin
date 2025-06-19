@@ -35,11 +35,12 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
-import type { Trainer, Gym, Province } from "@/lib/types"
+import type { Trainer, Gym, Province, Tag } from "@/lib/types"
 import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
 import { truncateId, formatPhoneDisplay, trimFormData } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Switch } from "@/components/ui/switch"
+import { tagService } from "@/lib/tagService"
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
@@ -92,6 +93,7 @@ export default function TrainersPage() {
           searchTerm: debouncedSearchTerm || undefined,
           includeInactive: includeInactive,
           includeClasses: true, // Always include classes to show private classes for freelancers
+          includeTags: true, // Always include tags to display trainer specializations
           isFreelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
           sortField: sortField,
           sortBy: sortBy,
@@ -214,6 +216,23 @@ export default function TrainersPage() {
 
   // Transform backend trainer data to form data structure
   const transformTrainerToFormData = (trainer: Trainer): TrainerFormData => {
+    // Transform tags: if they are tag objects, extract slugs; if they are already slugs, use as-is
+    let tagSlugs: string[] = [];
+    if (trainer.tags && Array.isArray(trainer.tags)) {
+      tagSlugs = trainer.tags.map((tag: any) => {
+        // If tag is an object with slug property, extract the slug
+        if (typeof tag === 'object' && tag.slug) {
+          return tag.slug;
+        }
+        // If tag is already a string (slug), use as-is
+        if (typeof tag === 'string') {
+          return tag;
+        }
+        // Fallback: should not happen but handle gracefully
+        return '';
+      }).filter(slug => slug !== ''); // Remove empty slugs
+    }
+    
     return {
       id: trainer.id,
       firstName: { th: trainer.first_name_th || "", en: trainer.first_name_en || "" },
@@ -222,7 +241,7 @@ export default function TrainersPage() {
       phone: trainer.phone || "",
       status: trainer.is_active ? "active" : "inactive",
       province_id: trainer.province?.id || null,
-      tags: trainer.tags || [],
+      tags: tagSlugs, // Use extracted tag slugs
       isFreelancer: trainer.is_freelance,
       bio: { th: trainer.bio_th || "", en: trainer.bio_en || "" },
       lineId: trainer.line_id || "",
@@ -282,33 +301,45 @@ export default function TrainersPage() {
   }
 
   // Transform form data to backend API structure
-  const transformFormDataToApi = (formData: TrainerFormData) => {
-    // Note: No gym_id is sent from here. Assignment is handled in the Gym management section.
-    return {
-      first_name_th: formData.firstName.th,
-      first_name_en: formData.firstName.en,
-      last_name_th: formData.lastName.th,
-      last_name_en: formData.lastName.en,
-      email: formData.email,
-      phone: formData.phone, // Already cleaned in the form component
-      is_active: formData.status === "active",
-      province_id: formData.province_id,
-      tags: formData.tags ? formData.tags.map(tagName => ({ name_en: tagName, name_th: tagName })) : [],
-      is_freelance: formData.isFreelancer,
-      bio_th: formData.bio.th,
-      bio_en: formData.bio.en,
-      line_id: formData.lineId,
-      exp_year: formData.yearsOfExperience,
-      // `classes` needs to be transformed for the API
-      classes: (formData.privateClasses || []).map(cls => ({
-        name: { th: cls.name.th, en: cls.name.en },
-        description: { th: cls.description.th, en: cls.description.en },
-        duration: cls.duration,
-        price: cls.price,
-        maxStudents: cls.maxStudents,
-        isPrivateClass: true,
-        isActive: cls.isActive
-      }))
+  const transformFormDataToApi = async (formData: TrainerFormData) => {
+    try {
+      // Convert tag slugs to tag objects for backend submission
+      const tagObjects = await convertTagSlugsToTagObjects(formData.tags || []);
+      
+      console.log("DEBUG - Tag conversion for trainer:");
+      console.log("- formData.tags (slugs):", formData.tags);
+      console.log("- tagObjects:", tagObjects);
+      
+      // Note: No gym_id is sent from here. Assignment is handled in the Gym management section.
+      return {
+        first_name_th: formData.firstName.th,
+        first_name_en: formData.firstName.en,
+        last_name_th: formData.lastName.th,
+        last_name_en: formData.lastName.en,
+        email: formData.email,
+        phone: formData.phone, // Already cleaned in the form component
+        is_active: formData.status === "active",
+        province_id: formData.province_id,
+        tags: tagObjects, // Use tag objects instead of creating them from names
+        is_freelance: formData.isFreelancer,
+        bio_th: formData.bio.th,
+        bio_en: formData.bio.en,
+        line_id: formData.lineId,
+        exp_year: formData.yearsOfExperience,
+        // `classes` needs to be transformed for the API
+        classes: (formData.privateClasses || []).map(cls => ({
+          name: { th: cls.name.th, en: cls.name.en },
+          description: { th: cls.description.th, en: cls.description.en },
+          duration: cls.duration,
+          price: cls.price,
+          maxStudents: cls.maxStudents,
+          isPrivateClass: true,
+          isActive: cls.isActive
+        }))
+      }
+    } catch (error) {
+      console.error('Error converting tags for trainer submission:', error);
+      throw error;
     }
   }
 
@@ -333,7 +364,7 @@ export default function TrainersPage() {
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
       const trimmedData = trimFormData(formData)
-      const apiData = transformFormDataToApi(trimmedData)
+      const apiData = await transformFormDataToApi(trimmedData)
       await trainersApi.create(apiData)
       toast.success("สร้างครูมวยสำเร็จ")
       setIsAddDialogOpen(false)
@@ -349,7 +380,7 @@ export default function TrainersPage() {
 
     try {
       const trimmedData = trimFormData(formData)
-      const apiData = transformFormDataToApi(trimmedData)
+      const apiData = await transformFormDataToApi(trimmedData)
       await trainersApi.update(editingTrainer.id, apiData)
       toast.success("อัพเดทครูมวยสำเร็จ")
       setEditingTrainer(null)
@@ -725,4 +756,30 @@ function PaginationControls({ page, total, pageSize, onPageChange }: { page: num
       </div>
     </div>
   )
-} 
+}
+
+// Helper function to convert tag slugs to tag objects with IDs
+const convertTagSlugsToTagObjects = async (tagSlugs: string[]): Promise<Tag[]> => {
+  if (!tagSlugs || tagSlugs.length === 0) {
+    return [];
+  }
+  
+  try {
+    // Get tag objects from slugs
+    const tagPromises = tagSlugs.map(async (slug) => {
+      try {
+        const response = await tagService.getTagBySlug(slug);
+        return response.data;
+      } catch (err) {
+        console.error(`Failed to get tag with slug: ${slug}`, err);
+        return null;
+      }
+    });
+    
+    const tags = await Promise.all(tagPromises);
+    return tags.filter((tag): tag is Tag => tag !== null);
+  } catch (error) {
+    console.error('Error converting tag slugs to objects:', error);
+    return [];
+  }
+}; 

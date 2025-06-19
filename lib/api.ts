@@ -162,7 +162,7 @@ export const tagsApi = {
   },
   
   // Get tag by ID
-  getById: (id: string) => apiRequest(`/api/tags/${id}`),
+  getById: (id: number) => apiRequest(`/api/tags/${id}`),
   
   // Create new tag
   create: (tag: any) => apiRequest("/api/tags", {
@@ -171,13 +171,13 @@ export const tagsApi = {
   }),
   
   // Update tag
-  update: (id: string, tag: any) => apiRequest(`/api/tags/${id}`, {
+  update: (id: number, tag: any) => apiRequest(`/api/tags/${id}`, {
     method: "PUT",
     body: JSON.stringify(tag),
   }),
   
   // Delete tag
-  delete: (id: string) => apiRequest(`/api/tags/${id}`, {
+  delete: (id: number) => apiRequest(`/api/tags/${id}`, {
     method: "DELETE",
   }),
 }
