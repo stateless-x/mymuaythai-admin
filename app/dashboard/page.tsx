@@ -6,17 +6,22 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Users, Building2, UserCheck, Briefcase, Loader2 } from "lucide-react"
+import { Users, Building2, UserCheck, Briefcase, Loader2, UserX, MapPin } from "lucide-react"
 import { toast } from "sonner"
-import { trainersApi, gymsApi } from "@/lib/api"
+import { dashboardApi } from "@/lib/api"
 
 interface DashboardStats {
   totalTrainers: number
   activeTrainers: number
+  inactiveTrainers: number
   freelancers: number
   staffTrainers: number
+  unassignedTrainers: number
   totalGyms: number
   activeGyms: number
+  inactiveGyms: number
+  topProvincesByTrainers: Array<{ provinceId: number; provinceName: string; trainerCount: number }>
+  topProvincesByGyms: Array<{ provinceId: number; provinceName: string; gymCount: number }>
 }
 
 export default function Dashboard() {
@@ -28,25 +33,22 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true)
-        const [trainersData, gymsData] = await Promise.all([
-          trainersApi.getAll(),
-          gymsApi.getAll()
-        ])
+        
+        // Use the dedicated dashboard API endpoint
+        const response = await dashboardApi.getStats()
+        
+        // Extract data from the API response
+        let statsData: DashboardStats
+        if (response?.data) {
+          statsData = response.data
+        } else if (response?.success && response) {
+          // Handle case where response is the data directly
+          statsData = response as any
+        } else {
+          throw new Error("Invalid response format from dashboard API")
+        }
 
-        // Calculate statistics
-        const activeTrainers = trainersData.items.filter((trainer: any) => trainer.is_active).length
-        const freelancers = trainersData.items.filter((trainer: any) => trainer.is_freelance && trainer.is_active).length
-        const staffTrainers = trainersData.items.filter((trainer: any) => !trainer.is_freelance && trainer.is_active).length
-        const activeGyms = gymsData.filter((gym: any) => gym.is_active).length
-
-        setStats({
-          totalTrainers: trainersData.items.length,
-          activeTrainers,
-          freelancers,
-          staffTrainers,
-          totalGyms: gymsData.length,
-          activeGyms
-        })
+        setStats(statsData)
         setError(null)
       } catch (err) {
         setError("Failed to fetch dashboard data")
@@ -104,10 +106,10 @@ export default function Dashboard() {
               <Users className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-semibold">ครูมวยทั้งหมด</h2>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">จำนวนครูมวยทั้งหมด</CardTitle>
+                  <CardTitle className="text-sm font-medium">ครูมวยที่เปิดใช้งาน</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -118,7 +120,7 @@ export default function Dashboard() {
 
               <Card className="border-orange-200 bg-orange-50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-orange-800">อิสระ</CardTitle>
+                  <CardTitle className="text-sm font-medium text-orange-800">ครูมวยอิสระ</CardTitle>
                   <Briefcase className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
@@ -126,21 +128,43 @@ export default function Dashboard() {
                   <p className="text-xs text-orange-600">ครูมวยอิสระ (Freelance)</p>
                 </CardContent>
               </Card>
+
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-blue-800">ครูมวยประจำยิม</CardTitle>
+                  <UserCheck className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-800">{stats.staffTrainers}</div>
+                  <p className="text-xs text-blue-600">ครูมวยประจำ</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-red-800">รอจัดสรร</CardTitle>
+                  <UserX className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-800">{stats.unassignedTrainers}</div>
+                  <p className="text-xs text-red-600">ครูมวยที่ยังไม่มียิม</p>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
           <Separator />
 
-          {/* Gyms & Staff Section */}
+          {/* Gyms Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <Building2 className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">ยิมและครูมวยประจำ</h2>
+              <h2 className="text-xl font-semibold">ยิมทั้งหมด</h2>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">ยิมที่ลงทะเบียนแล้ว</CardTitle>
+                  <CardTitle className="text-sm font-medium">ยิมทั้งหมด</CardTitle>
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -149,25 +173,155 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-green-200 bg-green-50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">ยิมที่เปิดแสดง</CardTitle>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-green-800">ยิมที่เปิดแสดง</CardTitle>
+                  <Building2 className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.activeGyms}</div>
-                  <p className="text-xs text-muted-foreground">กำลังแสดงผล</p>
+                  <div className="text-2xl font-bold text-green-800">{stats.activeGyms}</div>
+                  <p className="text-xs text-green-600">กำลังแสดงผล</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-gray-200 bg-gray-50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-800">ยิมที่ปิดแสดง</CardTitle>
+                  <Building2 className="h-4 w-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-800">{stats.inactiveGyms}</div>
+                  <p className="text-xs text-gray-600">ไม่แสดงผล</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Top Provinces Section */}
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold">จังหวัดที่มีการใช้งานมากที่สุด</h2>
+            </div>
+            
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Top 5 Provinces by Trainers */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <span>TOP 5 จังหวัดที่มีครูมวยมากที่สุด</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {stats.topProvincesByTrainers && stats.topProvincesByTrainers.length > 0 ? (
+                      stats.topProvincesByTrainers.map((province, index) => (
+                        <div key={province.provinceId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
+                              <span className="text-sm font-semibold text-blue-800">#{index + 1}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{province.provinceName}</p>
+                              <p className="text-sm text-gray-500">จังหวัด</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-blue-600">{province.trainerCount}</div>
+                            <p className="text-xs text-blue-500">ครูมวย</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-gray-500 py-4">ไม่มีข้อมูลครูมวยตามจังหวัด</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top 5 Provinces by Gyms */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Building2 className="h-5 w-5 text-green-600" />
+                    <span>TOP 5 จังหวัดที่มียิมมากที่สุด</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {stats.topProvincesByGyms && stats.topProvincesByGyms.length > 0 ? (
+                      stats.topProvincesByGyms.map((province, index) => (
+                        <div key={province.provinceId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
+                              <span className="text-sm font-semibold text-green-800">#{index + 1}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{province.provinceName}</p>
+                              <p className="text-sm text-gray-500">จังหวัด</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-green-600">{province.gymCount}</div>
+                            <p className="text-xs text-green-500">ยิม</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-gray-500 py-4">ไม่มีข้อมูลยิมตามจังหวัด</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Summary Section */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">สรุปสถิติ</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">ครูมวย</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>ครูมวยทั้งหมด:</span>
+                    <span className="font-medium">{stats.totalTrainers}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ใช้งานอยู่:</span>
+                    <span className="font-medium text-green-600">{stats.activeTrainers}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ปิดใช้งาน:</span>
+                    <span className="font-medium text-red-600">{stats.inactiveTrainers}</span>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">ครูมวยประจำยิม</CardTitle>
-                  <UserCheck className="h-4 w-4 text-muted-foreground" />
+                <CardHeader>
+                  <CardTitle className="text-base">ยิม</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.staffTrainers}</div>
-                  <p className="text-xs text-muted-foreground">ครูมวยประจำ</p>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>ยิมทั้งหมด:</span>
+                    <span className="font-medium">{stats.totalGyms}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ใช้งานอยู่:</span>
+                    <span className="font-medium text-green-600">{stats.activeGyms}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ปิดใช้งาน:</span>
+                    <span className="font-medium text-red-600">{stats.inactiveGyms}</span>
+                  </div>
                 </CardContent>
               </Card>
             </div>

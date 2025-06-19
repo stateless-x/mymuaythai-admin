@@ -107,19 +107,16 @@ export const trainersApi = {
     } else {
       // For regular listing, use /api/trainers endpoint
       if (params) {
-        // Map searchTerm to search for regular endpoint
-        const { searchTerm, ...otherParams } = params;
-        
-        Object.entries(otherParams).forEach(([key, value]) => {
+        Object.entries(params).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
-            query.append(key, String(value))
+            // Map searchTerm to search parameter for trainers API
+            if (key === 'searchTerm') {
+              query.append('search', String(value))
+            } else {
+              query.append(key, String(value))
+            }
           }
         })
-        
-        // Add search parameter if searchTerm was provided
-        if (searchTerm) {
-          query.append('search', String(searchTerm))
-        }
       }
       
       endpoint = `/api/trainers?${query.toString()}`;
@@ -198,6 +195,18 @@ export const healthApi = {
   check: () => apiRequest("/api/health"),
 }
 
+// Dashboard API
+export const dashboardApi = {
+  // Get dashboard statistics
+  getStats: () => apiRequest("/api/dashboard/stats"),
+  
+  // Get trainer counts by province
+  getTrainersByProvince: () => apiRequest("/api/dashboard/trainers-by-province"),
+  
+  // Get gym counts by province
+  getGymsByProvince: () => apiRequest("/api/dashboard/gyms-by-province"),
+}
+
 // Update trainer's gym association
 export async function updateTrainerGym(trainerId: string, gymId: string | null): Promise<{ success: boolean; error?: string }> {
   try {
@@ -274,4 +283,5 @@ export default {
   tags: tagsApi,
   provinces: provincesApi,
   health: healthApi,
+  dashboard: dashboardApi,
 } 
