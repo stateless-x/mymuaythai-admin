@@ -18,17 +18,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Plus, Search, Edit, Trash2, Loader2, Hash, Tag as TagIcon, Users, Building, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Loader2, Hash, Tag as TagIcon, Users, Building, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Tag } from "@/lib/types"
 import { tagsApi } from "@/lib/api"
@@ -46,12 +40,7 @@ function PaginationControls({ page, total, pageSize, onPageChange }: {
   pageSize: number, 
   onPageChange: (page: number) => void 
 }) {
-  const totalPages = Math.ceil(total / pageSize)
-  const shouldShowPagination = total > pageSize || totalPages > 1
-
-  if (!shouldShowPagination) {
-    return null
-  }
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
     <div className="flex items-center justify-between pt-4">
@@ -63,7 +52,7 @@ function PaginationControls({ page, total, pageSize, onPageChange }: {
           variant="outline"
           className="h-8 w-8 p-0"
           onClick={() => onPageChange(1)}
-          disabled={page === 1}
+          disabled={page === 1 || total === 0}
         >
           <ChevronsLeft className="h-4 w-4" />
         </Button>
@@ -71,7 +60,7 @@ function PaginationControls({ page, total, pageSize, onPageChange }: {
           variant="outline"
           className="h-8 w-8 p-0"
           onClick={() => onPageChange(page - 1)}
-          disabled={page === 1}
+          disabled={page === 1 || total === 0}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -79,7 +68,7 @@ function PaginationControls({ page, total, pageSize, onPageChange }: {
           variant="outline"
           className="h-8 w-8 p-0"
           onClick={() => onPageChange(page + 1)}
-          disabled={page === totalPages}
+          disabled={page === totalPages || total === 0}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -87,7 +76,7 @@ function PaginationControls({ page, total, pageSize, onPageChange }: {
           variant="outline"
           className="h-8 w-8 p-0"
           onClick={() => onPageChange(totalPages)}
-          disabled={page === totalPages}
+          disabled={page === totalPages || total === 0}
         >
           <ChevronsRight className="h-4 w-4" />
         </Button>
@@ -162,8 +151,6 @@ export default function TagsPage() {
   const [tags, setTags] = useState<(Tag & { gymCount: number, trainerCount: number })[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
-  const [sortField, setSortField] = useState<"name_th" | "name_en" | "id">("name_en")
-  const [sortBy, setSortBy] = useState<"desc" | "asc">("asc")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTag, setEditingTag] = useState<Tag | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -172,7 +159,7 @@ export default function TagsPage() {
   
   const [pagination, setPagination] = useState({
     page: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0,
   })
 
@@ -195,8 +182,7 @@ export default function TagsPage() {
         page: pagination.page,
         pageSize: pagination.pageSize,
         searchTerm: debouncedSearchTerm || undefined,
-        sortField: sortField,
-        sortBy: sortBy,
+        // Let backend use its defaults (updated_at desc)
       }
       
       const response = await tagsApi.getAll(params);
@@ -230,18 +216,17 @@ export default function TagsPage() {
       setIsSearching(false)
     }
   }
+
   useEffect(() => {
-
-
     fetchTags()
-  }, [pagination.page, pagination.pageSize, debouncedSearchTerm, sortField, sortBy])
+  }, [pagination.page, pagination.pageSize, debouncedSearchTerm])
 
-  // Reset to page 1 when search term or filters change
+  // Reset to page 1 when search term changes
   useEffect(() => {
     if (pagination.page !== 1) {
       setPagination(prev => ({ ...prev, page: 1 }))
     }
-  }, [debouncedSearchTerm, sortField, sortBy])
+  }, [debouncedSearchTerm])
 
   const handlePageChange = useCallback((newPage: number) => {
     setPagination(p => ({ ...p, page: newPage }));
@@ -260,7 +245,11 @@ export default function TagsPage() {
   }
 
   const handleOpenEditDialog = (tag: Tag) => {
-    resetForm() // Start with empty form data
+    // Populate form with current tag data
+    setFormData({
+      name_th: tag.name_th,
+      name_en: tag.name_en
+    })
     setEditingTag(tag)
   }
 
@@ -363,43 +352,18 @@ export default function TagsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="ค้นหาแท็ก..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="max-w-sm pl-8"
-                    />
-                    {isSearching && (
-                      <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Select value={sortField} onValueChange={(value: "name_th" | "name_en" | "id") => setSortField(value)}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="เรียงตาม" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="name_en">ชื่ออังกฤษ</SelectItem>
-                      <SelectItem value="name_th">ชื่อไทย</SelectItem>
-                      <SelectItem value="id">ID</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Select value={sortBy} onValueChange={(value: "asc" | "desc") => setSortBy(value)}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue placeholder="ลำดับ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">น้อย → มาก</SelectItem>
-                      <SelectItem value="desc">มาก → น้อย</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="ค้นหาแท็ก..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm pl-8"
+                  />
+                  {isSearching && (
+                    <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
               </div>
 
@@ -421,7 +385,6 @@ export default function TagsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[80px]">ID</TableHead>
                         <TableHead>ชื่อไทย</TableHead>
                         <TableHead>ชื่ออังกฤษ</TableHead>
                         <TableHead className="text-center">ยิม</TableHead>
@@ -432,7 +395,6 @@ export default function TagsPage() {
                     <TableBody>
                       {tags.map((tag) => (
                         <TableRow key={tag.id}>
-                          <TableCell className="font-mono text-sm">{tag.id}</TableCell>
                           <TableCell className="font-medium">{tag.name_th}</TableCell>
                           <TableCell>{tag.name_en}</TableCell>
                           <TableCell className="text-center">
@@ -509,15 +471,15 @@ export default function TagsPage() {
                       ))}
                     </TableBody>
                   </Table>
-                  
-                  <PaginationControls
-                    page={pagination.page}
-                    total={pagination.total}
-                    pageSize={pagination.pageSize}
-                    onPageChange={handlePageChange}
-                  />
                 </div>
               )}
+
+              <PaginationControls
+                page={pagination.page}
+                total={pagination.total}
+                pageSize={pagination.pageSize}
+                onPageChange={handlePageChange}
+              />
             </CardContent>
           </Card>
         </div>
