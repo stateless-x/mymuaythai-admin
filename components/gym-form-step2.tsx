@@ -7,6 +7,7 @@ import { ImageUpload } from "@/components/image-upload";
 import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector";
 import { TrainerSelector, TrainerSelectorRef } from "@/components/trainer-selector";
 import { batchUpdateTrainerGymAssociations } from "@/lib/api";
+import { trimFormData } from "@/lib/utils/form-helpers";
 import type { Gym, Trainer } from "@/lib/types";
 
 interface GymFormStep2Props {
@@ -134,11 +135,11 @@ export function GymFormStep2({
       console.log("- completeTrainerList:", completeTrainerList);
       console.log("- completeTrainerIds:", completeTrainerIds);
 
-      const completeFormData = {
+      const completeFormData = trimFormData({
         ...initialData,
         ...formData,
         associatedTrainers: completeTrainerIds,
-      };
+      });
 
       console.log("DEBUG - Complete form data being submitted:");
       console.log("- initialData:", initialData);

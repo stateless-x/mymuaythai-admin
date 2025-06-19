@@ -37,7 +37,7 @@ import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, C
 import { toast } from "sonner"
 import type { Trainer, Gym, Province } from "@/lib/types"
 import { trainersApi, gymsApi, provincesApi } from "@/lib/api"
-import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
+import { truncateId, formatPhoneDisplay, trimFormData } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Switch } from "@/components/ui/switch"
 
@@ -331,7 +331,8 @@ export default function TrainersPage() {
 
   const handleAddTrainer = async (formData: TrainerFormData) => {
     try {
-      const apiData = transformFormDataToApi(formData)
+      const trimmedData = trimFormData(formData)
+      const apiData = transformFormDataToApi(trimmedData)
       await trainersApi.create(apiData)
       toast.success("สร้างครูมวยสำเร็จ")
       setIsAddDialogOpen(false)
@@ -346,7 +347,8 @@ export default function TrainersPage() {
     if (!editingTrainer) return
 
     try {
-      const apiData = transformFormDataToApi(formData)
+      const trimmedData = trimFormData(formData)
+      const apiData = transformFormDataToApi(trimmedData)
       await trainersApi.update(editingTrainer.id, apiData)
       toast.success("อัพเดทครูมวยสำเร็จ")
       setEditingTrainer(null)

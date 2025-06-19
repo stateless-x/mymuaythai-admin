@@ -22,7 +22,7 @@ import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector"
 import { 
   validateFormData, 
   formatPhoneInput, 
-  cleanPhoneForAPI,
+  trimFormData,
   validateEmail 
 } from "@/lib/utils/form-helpers"
 
@@ -156,12 +156,9 @@ export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: Tra
     setIsSubmitting(true)
 
     try {
-      // Clean phone number before submission
-      const cleanedFormData = {
-        ...formData,
-        phone: cleanPhoneForAPI(formData.phone)
-      }
-      await onSubmit(cleanedFormData)
+      // Trim all form data before submission
+      const trimmedFormData = trimFormData(formData)
+      await onSubmit(trimmedFormData)
     } finally {
       setIsSubmitting(false)
     }

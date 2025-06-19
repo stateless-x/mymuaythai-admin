@@ -37,7 +37,7 @@ import { Plus, Search, Edit, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown, C
 import { toast } from "sonner"
 import type { Gym } from "@/lib/types"
 import { gymsApi } from "@/lib/api"
-import { truncateId, formatPhoneDisplay } from "@/lib/utils/form-helpers"
+import { truncateId, formatPhoneDisplay, trimFormData } from "@/lib/utils/form-helpers"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Switch } from "@/components/ui/switch"
 
@@ -247,7 +247,8 @@ export default function GymsPage() {
       console.log("DEBUG - handleAddGym received data:", gymData);
       console.log("DEBUG - associatedTrainers in gymData:", gymData.associatedTrainers);
       
-      const newGym = await gymsApi.create(gymData);
+      const trimmedData = trimFormData(gymData);
+      const newGym = await gymsApi.create(trimmedData);
       
       console.log("DEBUG - API response from create:", newGym);
       
@@ -275,7 +276,8 @@ export default function GymsPage() {
   const savePartialGymData = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
     if (editingGym) {
       try {
-        const response = await gymsApi.update(editingGym.id, gymData)
+        const trimmedData = trimFormData(gymData);
+        const response = await gymsApi.update(editingGym.id, trimmedData)
         
         // Extract the actual gym data from the response
         const updatedGym = response.data || response;

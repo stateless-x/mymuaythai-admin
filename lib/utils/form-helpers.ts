@@ -214,4 +214,79 @@ export const validateFormData = (
   }
 
   return errors
+}
+
+// ========================
+// DATA CLEANING FUNCTIONS
+// ========================
+
+/**
+ * Recursively trims all string values in form data to remove leading and trailing whitespace
+ * @param data - Form data object that may contain nested objects and arrays
+ * @returns any - Same structure with all string values trimmed
+ */
+export const trimFormData = <T extends Record<string, any>>(data: T): T => {
+  if (data === null || data === undefined) {
+    return data
+  }
+
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => trimFormData(item)) as unknown as T
+  }
+
+  // Handle objects
+  if (typeof data === 'object' && data !== null) {
+    const trimmedData = {} as T
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        // Trim string values
+        trimmedData[key as keyof T] = value.trim() as T[keyof T]
+      } else if (typeof value === 'object' && value !== null) {
+        // Recursively trim nested objects and arrays
+        trimmedData[key as keyof T] = trimFormData(value) as T[keyof T]
+      } else {
+        // Keep non-string values as is (numbers, booleans, null, etc.)
+        trimmedData[key as keyof T] = value
+      }
+    }
+    
+    return trimmedData
+  }
+
+  // Return primitive values as is
+  return data
+}
+
+/**
+ * Trims and cleans form data for API submission
+ * Combines trimming with other cleanup operations (empty strings to undefined, phone cleaning)
+ * @param data - Form data object to clean
+ * @returns Cleaned form data ready for API submission
+ */
+export const cleanFormDataForAPI = <T extends Record<string, any>>(data: T): T => {
+  // First trim all string values
+  const trimmedData = trimFormData(data)
+  
+  // Then apply additional cleaning
+  const cleanedData = { ...trimmedData }
+  
+  // Convert empty strings to undefined for optional fields
+  Object.keys(cleanedData).forEach(key => {
+    const value = cleanedData[key]
+    if (typeof value === 'string' && value === '') {
+      // Only convert to undefined for specific optional fields
+      if (['email', 'map_url', 'youtube_url', 'line_id', 'bio_th', 'bio_en'].includes(key)) {
+        cleanedData[key as keyof T] = undefined as T[keyof T]
+      }
+    }
+  })
+  
+  // Clean phone number if present
+  if ('phone' in cleanedData && cleanedData.phone && typeof cleanedData.phone === 'string') {
+    (cleanedData as any).phone = cleanPhoneForAPI(cleanedData.phone)
+  }
+  
+  return cleanedData
 } 

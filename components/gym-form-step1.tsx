@@ -18,7 +18,7 @@ import {
   validateUrl, 
   validateFormData,
   formatPhoneInput, 
-  cleanPhoneForAPI 
+  cleanFormDataForAPI 
 } from "@/lib/utils/form-helpers"
 
 interface GymFormStep1Props {
@@ -121,21 +121,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
     return Object.keys(formErrors).length === 0
   }
 
-  // Helper function to clean form data for API (empty strings to undefined, clean phone)
-  const cleanFormDataForAPI = (data: typeof formData) => {
-    const cleanedData = { ...data }
-    
-    // Convert empty strings to undefined for optional fields
-    if (cleanedData.email === "") cleanedData.email = undefined
-    if (cleanedData.map_url === "") cleanedData.map_url = undefined
-    if (cleanedData.youtube_url === "") cleanedData.youtube_url = undefined
-    if (cleanedData.line_id === "") cleanedData.line_id = undefined
-    if (cleanedData.phone) {
-      cleanedData.phone = cleanPhoneForAPI(cleanedData.phone)
-    }
-    
-    return cleanedData
-  }
+
 
   const handleNext = async (e?: React.FormEvent) => {
     if (e) {
