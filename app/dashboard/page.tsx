@@ -207,43 +207,8 @@ export default function Dashboard() {
             </div>
             
             <div className="grid gap-6 lg:grid-cols-2">
-              {/* Top 5 Provinces by Trainers */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="h-5 w-5 text-blue-600" />
-                    <span>TOP 5 จังหวัดที่มีครูมวยมากที่สุด</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {stats.topProvincesByTrainers && stats.topProvincesByTrainers.length > 0 ? (
-                      stats.topProvincesByTrainers.map((province, index) => (
-                        <div key={province.provinceId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
-                              <span className="text-sm font-semibold text-blue-800">#{index + 1}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{province.provinceName}</p>
-                              <p className="text-sm text-gray-500">จังหวัด</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-blue-600">{province.trainerCount}</div>
-                            <p className="text-xs text-blue-500">ครูมวย</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">ไม่มีข้อมูลครูมวยตามจังหวัด</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Top 5 Provinces by Gyms */}
-              <Card>
+                            {/* Top 5 Provinces by Gyms */}
+                            <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Building2 className="h-5 w-5 text-green-600" />
@@ -276,56 +241,44 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              {/* Top 5 Provinces by Trainers */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <span>TOP 5 จังหวัดที่มีครูมวยมากที่สุด</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {stats.topProvincesByTrainers && stats.topProvincesByTrainers.length > 0 ? (
+                      stats.topProvincesByTrainers.map((province, index) => (
+                        <div key={province.provinceId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
+                              <span className="text-sm font-semibold text-blue-800">#{index + 1}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{province.provinceName}</p>
+                              <p className="text-sm text-gray-500">จังหวัด</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-blue-600">{province.trainerCount}</div>
+                            <p className="text-xs text-blue-500">คน</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-gray-500 py-4">ไม่มีข้อมูลครูมวยตามจังหวัด</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
           <Separator />
-
-          {/* Summary Section */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">สรุปสถิติ</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">ครูมวย</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>ครูมวยทั้งหมด:</span>
-                    <span className="font-medium">{stats.totalTrainers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ใช้งานอยู่:</span>
-                    <span className="font-medium text-green-600">{stats.activeTrainers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ปิดใช้งาน:</span>
-                    <span className="font-medium text-red-600">{stats.inactiveTrainers}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">ยิม</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>ยิมทั้งหมด:</span>
-                    <span className="font-medium">{stats.totalGyms}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ใช้งานอยู่:</span>
-                    <span className="font-medium text-green-600">{stats.activeGyms}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ปิดใช้งาน:</span>
-                    <span className="font-medium text-red-600">{stats.inactiveGyms}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
       </AdminLayout>
     </ProtectedRoute>
