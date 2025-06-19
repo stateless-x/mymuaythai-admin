@@ -99,8 +99,8 @@ export default function GymsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [includeInactive, setIncludeInactive] = useState(true)
-  const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [sortBy, setSortBy] = useState<"desc" | "asc">("desc")
+  const [sortField, setSortField] = useState<"created_at" | "updated_at">()
+  const [sortBy, setSortBy] = useState<"desc" | "asc">()
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -114,7 +114,15 @@ export default function GymsPage() {
   })
 
   useEffect(() => {
+    setSortField("updated_at");
+    setSortBy("desc");
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
+      if (!sortField || !sortBy) {
+        return;
+      }
       // Show search loading only if we're searching, not on initial load
       if (debouncedSearchTerm) {
         setIsSearching(true)

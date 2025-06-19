@@ -49,8 +49,8 @@ export default function TrainersPage() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [includeInactive, setIncludeInactive] = useState(true)
   const [freelancerFilter, setFreelancerFilter] = useState<"all" | "freelancer" | "staff">("all")
-  const [sortField, setSortField] = useState<"created_at" | "updated_at">("created_at")
-  const [sortBy, setSortBy] = useState<"desc" | "asc">("desc")
+  const [sortField, setSortField] = useState<"created_at" | "updated_at">()
+  const [sortBy, setSortBy] = useState<"desc" | "asc">()
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -66,9 +66,17 @@ export default function TrainersPage() {
     total: 0,
   })
 
+  useEffect(() => {
+    setSortField("updated_at")
+    setSortBy("desc")
+  }, [])
+
   // Single useEffect to handle all data fetching
   useEffect(() => {
     const fetchData = async () => {
+      if (!sortField || !sortBy) {
+        return;
+      }
       try {
         // Show search loading only if we're searching, not on initial load
         if (debouncedSearchTerm) {
@@ -157,6 +165,8 @@ export default function TrainersPage() {
 
   const closeEditDialog = () => {
     setEditingTrainer(null)
+    // Refresh data to ensure we have the latest state after any edits
+    refreshData()
   }
 
   const formatDate = (dateString: string | Date) => {
@@ -211,7 +221,7 @@ export default function TrainersPage() {
       phone: trainer.phone || "",
       status: trainer.is_active ? "active" : "inactive",
       province_id: trainer.province?.id || null,
-      tags: trainer.tags ? trainer.tags.map(tag => tag.name_en) : [],
+      tags: trainer.tags || [],
       isFreelancer: trainer.is_freelance,
       bio: { th: trainer.bio_th || "", en: trainer.bio_en || "" },
       lineId: trainer.line_id || "",
