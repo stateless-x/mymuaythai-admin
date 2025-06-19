@@ -12,9 +12,10 @@ interface GymFormMultiStepProps {
   onSavePartial?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
   onComplete?: () => void
   onSavePartialSuccess?: () => void
+  fetchGymData?: () => void
 }
 
-export function GymFormMultiStep({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess }: GymFormMultiStepProps) {
+export function GymFormMultiStep({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess, fetchGymData }: GymFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
   
   // Initialize step1Data directly from gym prop
@@ -47,8 +48,9 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSavePartial, onCom
     
     try {
       await onSavePartial(data as Omit<Gym, "id" | "joinedDate">)
-      // Update step1Data with the saved data to ensure consistency
+      // Update step1Data with `the` saved data to ensure consistency
       setStep1Data(prevData => ({ ...prevData, ...data }))
+      fetchGymData?.()
     } catch (error) {
       throw error
     }
@@ -65,8 +67,10 @@ export function GymFormMultiStep({ gym, onSubmit, onCancel, onSavePartial, onCom
   }
 
   const handleFinalSubmit = async (finalData: Omit<Gym, "id" | "joinedDate">) => {
+    
     if (onSubmit) {
       await onSubmit(finalData)
+      fetchGymData?.()
     }
   }
 

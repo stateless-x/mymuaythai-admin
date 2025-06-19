@@ -117,6 +117,63 @@ export default function GymsPage() {
     setSortField("updated_at");
     setSortBy("desc");
   }, []);
+  const fetchData = async () => {
+    if (!sortField || !sortBy) {
+      return;
+    }
+    // Show search loading only if we're searching, not on initial load
+    if (debouncedSearchTerm) {
+      setIsSearching(true)
+    } else {
+      setIsLoading(true)
+    }
+    
+    try {
+      const params = {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        searchTerm: debouncedSearchTerm || undefined,
+        includeInactive: includeInactive,
+        sortField: sortField,
+        sortBy: sortBy,
+      }
+      
+      const response = await gymsApi.getAll(params);
+      
+      // Remove client-side filtering - let backend handle everything
+      const gymsData = response.data || [];
+      setGyms(gymsData);
+      
+      // Use the pagination from response
+      const totalFromResponse = response.pagination?.total || 0;
+      const pageSizeFromResponse = response.pagination?.pageSize || pagination.pageSize;
+      const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
+      
+      // If current page exceeds available pages, go to the last available page
+      const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
+      
+      setPagination(prev => ({ 
+        ...prev, 
+        page: validPage,
+        total: totalFromResponse,
+        pageSize: pageSizeFromResponse
+      }));
+      
+      // If we had to adjust the page, refetch with the correct page
+      if (validPage !== pagination.page && totalPages > 0) {
+        return;
+      }
+      
+      setError(null)
+    } catch (err) {
+      console.error('Error fetching gyms:', err)
+      setError("Failed to fetch gyms")
+      toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
+    } finally {
+      setIsLoading(false)
+      setIsSearching(false)
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -191,10 +248,6 @@ export default function GymsPage() {
     setPagination(p => ({ ...p, page: newPage }));
   }, []);
 
-  const refreshData = useCallback(() => {
-    // Force a re-fetch by updating a dependency
-    setPagination(prev => ({ ...prev }));
-  }, []);
 
   const closeEditDialog = () => {
     setEditingGym(null)
@@ -258,18 +311,12 @@ export default function GymsPage() {
       
       // Conservative approach: Only update total count, no array manipulation
       setPagination(prev => ({ ...prev, total: prev.total + 1 }))
-      
-      toast.success("เพิ่มยิมสำเร็จ - รีเฟรชหน้าเพื่อดูยิมใหม่", {
-        action: {
-          label: "รีเฟรช",
-          onClick: () => refreshData()
-        }
-      });
+      fetchData();
     } catch (err) {
       console.error("DEBUG - Error in handleAddGym:", err);
       toast.error("ไม่สามารถเพิ่มยิมได้");
       // On error, refresh to get correct state
-      refreshData();
+      fetchData();
     }
   };
 
@@ -294,7 +341,7 @@ export default function GymsPage() {
         return updatedGym
       } catch (err) {
         // On error, refresh to get correct state
-        refreshData()
+        fetchData();
         throw err 
       }
     }
@@ -302,8 +349,6 @@ export default function GymsPage() {
 
   const handleEditComplete = () => {
     setEditingGym(null)
-    // Refresh data to show updated information
-    refreshData()
   }
 
   const handlePartialSaveSuccess = () => {
@@ -322,8 +367,7 @@ export default function GymsPage() {
       toast.success("ลบยิมสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบยิมได้")
-      // On error, refresh to get correct state
-      refreshData()
+      fetchData();
     }
   }
 
@@ -578,6 +622,7 @@ export default function GymsPage() {
                                   onSavePartial={savePartialGymData}
                                   onComplete={handleEditComplete}
                                   onSavePartialSuccess={handlePartialSaveSuccess}
+                                  fetchGymData={fetchData}
                                 />
                               </div>
                             </DialogContent>

@@ -10,9 +10,10 @@ interface GymFormProps {
   onSavePartial?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
   onComplete?: () => void
   onSavePartialSuccess?: () => void
+  fetchGymData?: () => void
 }
 
-export function GymForm({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess }: GymFormProps) {
+export function GymForm({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess, fetchGymData }: GymFormProps) {
   return <GymFormMultiStep 
     gym={gym} 
     onSubmit={onSubmit} 
@@ -20,5 +21,6 @@ export function GymForm({ gym, onSubmit, onCancel, onSavePartial, onComplete, on
     onSavePartial={onSavePartial} 
     onComplete={onComplete} 
     onSavePartialSuccess={onSavePartialSuccess} 
+    fetchGymData={fetchGymData}
   />
 }
