@@ -2,11 +2,13 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
+import { adminUsersApi } from "./api"
 
 interface User {
   id: string
   email: string
   name: string
+  role: 'admin' | 'staff'
 }
 
 interface AuthContextType {
@@ -17,9 +19,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Backend API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -38,42 +37,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Try to authenticate with the MyMuayThai backend
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
+      // Authenticate with the admin users API
+      const response = await adminUsersApi.login({ email, password })
+      
+      if (response.success && response.data) {
         const user = {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name || data.user.email,
+          id: response.data.id,
+          email: response.data.email,
+          name: response.data.email, // Use email as name since we don't have a name field
+          role: response.data.role,
         }
         
         setUser(user)
         localStorage.setItem("admin-user", JSON.stringify(user))
-        localStorage.setItem("auth-token", data.token)
+        localStorage.setItem("auth-token", "admin-session") // Simple session token
         return true
       }
-    } catch (error) {
-      throw error;
+      
+      return false
+    } catch (error: any) {
+      console.error('Login error:', error)
+      // Re-throw the error so the login page can handle it and show appropriate toast
+      throw error
     }
-
-    // Fallback to mock authentication if backend is not available
-    if (email === "admin@gym.com" && password === "admin123") {
-      const mockUser = { id: "1", email, name: "Admin User" }
-      setUser(mockUser)
-      localStorage.setItem("admin-user", JSON.stringify(mockUser))
-      localStorage.setItem("auth-token", "mock-token")
-      return true
-    }
-    
-    return false
   }
 
   const logout = () => {

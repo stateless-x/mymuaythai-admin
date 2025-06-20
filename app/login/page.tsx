@@ -44,8 +44,17 @@ export default function Login() {
       } else {
         setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง")
       }
-    } catch (err) {
-      setError("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง")
+    } catch (err: any) {
+      console.error('Login error:', err)
+      
+      // Handle specific error messages
+      if (err.message && err.message.includes('Account is inactive')) {
+        setError("บัญชีของคุณถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+      } else if (err.message && err.message.includes('Maximum 3 users allowed')) {
+        setError("จำนวนผู้ใช้เต็มแล้ว (สูงสุด 3 คน)")
+      } else {
+        setError("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -91,7 +100,11 @@ export default function Login() {
               {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
           </form>
-          <div className="mt-4 text-sm text-gray-600 text-center">ข้อมูลทดสอบ: admin@gym.com / admin123</div>
+          <div className="mt-4 text-sm text-gray-600 text-center">
+            <div>ข้อมูลทดสอบ:</div>
+            <div>ผู้ดูแลระบบ: admin@mymuaythai.com / admin123456</div>
+            <div>พนักงาน: staff@mymuaythai.com / staff123456</div>
+          </div>
         </CardContent>
       </Card>
     </div>
