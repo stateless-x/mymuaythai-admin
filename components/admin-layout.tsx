@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { Users, Building2, LayoutDashboard, LogOut, Menu, Tag } from "lucide-react"
+import { Users, Building2, LayoutDashboard, LogOut, Menu, Tag, UserCog } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
@@ -16,6 +16,7 @@ const navigation = [
   { name: "ครูมวย", href: "/trainers", icon: Users },
   { name: "ยิม", href: "/gyms", icon: Building2 },
   { name: "แท็ก", href: "/tags", icon: Tag },
+  { name: "ผู้ดูแลระบบ", href: "/users", icon: UserCog },
 ]
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -192,6 +192,48 @@ export const tagsApi = {
   }),
 }
 
+// Admin Users API
+export const adminUsersApi = {
+  // Get all admin users
+  getAll: () => apiRequest("/api/admin-users"),
+  
+  // Get admin user by ID
+  getById: (id: string) => apiRequest(`/api/admin-users/${id}`),
+  
+  // Create new admin user
+  create: (adminUser: { email: string; password: string; role: 'admin' | 'staff' }) => 
+    apiRequest("/api/admin-users", {
+      method: "POST",
+      body: JSON.stringify(adminUser),
+    }),
+  
+  // Update admin user
+  update: (id: string, adminUser: { 
+    email?: string; 
+    password?: string; 
+    role?: 'admin' | 'staff'; 
+    is_active?: boolean 
+  }) => apiRequest(`/api/admin-users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(adminUser),
+  }),
+  
+  // Delete admin user
+  delete: (id: string) => apiRequest(`/api/admin-users/${id}`, {
+    method: "DELETE",
+  }),
+  
+  // Login admin user
+  login: (credentials: { email: string; password: string }) => 
+    apiRequest("/api/admin-users/login", {
+      method: "POST", 
+      body: JSON.stringify(credentials),
+    }),
+  
+  // Get user stats (admin count and total count)
+  getUserStats: () => apiRequest("/api/admin-users/stats/count"),
+}
+
 // Provinces API (read-only)
 export const provincesApi = {
   // Get all provinces

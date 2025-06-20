@@ -89,6 +89,15 @@ export interface Tag {
   trainerCount?: number
 }
 
+export interface AdminUser {
+  id: string
+  email: string
+  role: 'admin' | 'staff'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 
 
 export const FACILITY_OPTIONS = [
