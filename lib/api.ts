@@ -15,7 +15,6 @@ const getAuthToken = (): string | null => {
 
 // Helper function for authenticated requests with automatic token refresh
 const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<any> => {
-  console.log(`API Request to ${endpoint}:`, { options, retryCount })
   const token = getAuthToken()
   
   const config: RequestInit = {
@@ -27,18 +26,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCoun
     },
   }
 
-  const fullUrl = `${API_BASE_URL}${endpoint}`
-  console.log('Full request URL:', fullUrl)
-  console.log('Request method:', config.method || 'GET')
-  console.log('Request headers:', config.headers)
-  console.log('Request body:', config.body)
-
-  const response = await fetch(fullUrl, config)
-  console.log(`API Response from ${endpoint}:`, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: Object.fromEntries(response.headers.entries())
-  })
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
   
   // Handle 401 Unauthorized - try to refresh token once
   if (response.status === 401 && retryCount === 0 && !endpoint.includes('/login') && !endpoint.includes('/refresh')) {
@@ -77,58 +65,81 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCoun
     }
   }
   
+  // Handle non-200 responses
   if (!response.ok) {
-    let errorDetails
+    let errorDetails: any = null
+    
     try {
-      errorDetails = await response.json()
-    } catch {
-      errorDetails = await response.text()
+      const errorText = await response.text()
+      if (errorText) {
+        errorDetails = JSON.parse(errorText)
+      }
+    } catch (parseError) {
+      console.error('Error parsing error response:', parseError)
     }
-    
-    console.error(`API Error Details:`, {
-      url: `${API_BASE_URL}${endpoint}`,
-      status: response.status,
-      statusText: response.statusText,
-      errorDetails,
-      headers: Object.fromEntries(response.headers.entries())
-    })
-    
-    throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`)
+
+    // Log error for development
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`API Error:`, {
+        url: `${API_BASE_URL}${endpoint}`,
+        method: options.method || 'GET',
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        data: errorDetails,
+        requestBody: options.body,
+        responseText: response.statusText
+      })
+    }
+
+    // If backend provides an error message, use it
+    if (errorDetails?.error) {
+      throw new Error(errorDetails.error)
+    }
+
+    // Fall back to status-based errors
+    if (response.status === 401) {
+      throw new Error('UNAUTHORIZED')
+    } else if (response.status === 403) {
+      throw new Error('FORBIDDEN')
+    } else if (response.status === 404) {
+      throw new Error('NOT_FOUND')
+    } else if (response.status >= 500) {
+      throw new Error('SERVER_ERROR')
+    } else {
+      throw new Error('REQUEST_FAILED')
+    }
   }
   
-  // Handle response parsing more carefully
+  // Handle response parsing
   const contentType = response.headers.get('content-type')
-  console.log(`Response content-type: ${contentType}`)
   
   try {
     if (contentType && contentType.includes('application/json')) {
-      // First try to get the response as text to see what we have
       const responseText = await response.text()
-      console.log(`Raw response text: "${responseText}"`)
       
       if (!responseText || responseText.trim() === '') {
-        console.warn('Empty response body received')
-        return { success: false, error: 'Empty response from server' }
+        throw new Error('EMPTY_RESPONSE')
       }
       
       try {
         const jsonData = JSON.parse(responseText)
-        console.log(`Parsed JSON response:`, jsonData)
         return jsonData
       } catch (jsonError: any) {
-        console.error('JSON parsing failed:', jsonError)
-        console.error('Raw response that failed to parse:', responseText)
-        throw new Error(`Invalid JSON response: ${responseText}`)
+        throw new Error('INVALID_RESPONSE')
       }
     } else {
       // For non-JSON responses, return text
       const text = await response.text()
-      console.log(`Response text:`, text)
       return text ? { data: text } : { success: true }
     }
-  } catch (error) {
-    console.error('Response parsing error:', error)
-    throw error
+  } catch (error: any) {
+    // If it's already one of our custom errors, re-throw it
+    if (error.message.match(/^(EMPTY_RESPONSE|INVALID_RESPONSE|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|RATE_LIMITED|SERVER_ERROR|REQUEST_FAILED)$/)) {
+      throw error
+    }
+    // Otherwise, it's a parsing error
+    throw new Error('PARSING_ERROR')
   }
 }
 

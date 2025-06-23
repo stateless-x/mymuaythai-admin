@@ -41,18 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Authenticate with the admin users API
-      console.log('Attempting login with:', { email })
       const response = await adminUsersApi.login({ email, password })
-      console.log('Login response:', response)
-      console.log('Response keys:', Object.keys(response || {}))
-      console.log('Response.success:', response?.success)
-      console.log('Response.data:', response?.data)
       
       if (response.success && response.data) {
-        console.log('Response.data keys:', Object.keys(response.data || {}))
-        console.log('Response.data.user:', response.data.user)
-        
         const userData = {
           id: response.data.user.id,
           email: response.data.user.email,
@@ -60,7 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: response.data.user.role,
         }
         
-        console.log('Setting user data:', userData)
         setUser(userData)
         setToken(response.data.accessToken)
         localStorage.setItem("admin-user", JSON.stringify(userData))
@@ -69,15 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true
       }
       
-      console.log('Login failed: Invalid response format')
-      console.log('Expected: response.success && response.data')
-      console.log('Got: success=', response?.success, 'data=', response?.data)
       return false
     } catch (error: any) {
-      console.error('Login error details:', error)
-      console.error('Error message:', error.message)
-      console.error('Error stack:', error.stack)
-      // Re-throw the error so the login page can handle it and show appropriate toast
+      // Re-throw the error so the login page can handle it and show appropriate message
       throw error
     }
   }

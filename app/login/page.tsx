@@ -31,46 +31,45 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setSuccess("")
     setIsLoading(true)
-
-    // Basic validation
-    if (!email || !password) {
-      setError("กรุณากรอกข้อมูลให้ครบทุกช่อง")
-      setIsLoading(false)
-      return
-    }
-
-    if (!email.includes("@")) {
-      setError("กรุณาใส่อีเมลที่ถูกต้อง")
-      setIsLoading(false)
-      return
-    }
+    setError('')
+    setSuccess('')
 
     try {
-      const loginSuccess = await login(email, password)
-      if (loginSuccess) {
-        setSuccess("เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนหน้า...")
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 1000)
+      await login(email, password)
+      setSuccess('เข้าสู่ระบบสำเร็จ กำลังเปลี่ยนเส้นทาง...')
+      setTimeout(() => router.push('/dashboard'), 1500)
+    } catch (error) {
+      console.error('Login error:', error)
+      
+      // Handle specific error types
+      if (error instanceof Error) {
+        const errorMessage = error.message
+        
+        // Check if it's a backend error message (not our status codes)
+        if (errorMessage === 'Invalid email or password') {
+          setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        } else if (errorMessage.includes('password')) {
+          setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        } else {
+          // Handle our status code errors
+          switch (errorMessage) {
+            case 'UNAUTHORIZED':
+              setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+              break
+            case 'FORBIDDEN':
+              setError('บัญชีของคุณไม่มีสิทธิ์เข้าถึงระบบนี้')
+              break
+            case 'SERVER_ERROR':
+              setError('เกิดข้อผิดพลาดของเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง')
+              break
+            default:
+              setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง')
+          }
+        }
       } else {
-        setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+        setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง')
       }
-    } catch (err: any) {
-      console.error('Login error:', err)
-      
-      // DEBUG: Show the exact error message
-      console.error('Raw error object:', err)
-      console.error('Error name:', err.name)
-      console.error('Error message:', err.message)
-      console.error('Error stack:', err.stack)
-      
-      // Show raw error message for debugging
-      let errorMessage = `DEBUG: ${err.message || 'Unknown error'}`
-      
-      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -133,8 +132,10 @@ export default function Login() {
             </div>
             {error && (
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </div>
               </Alert>
             )}
             {success && (
