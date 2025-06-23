@@ -99,6 +99,14 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCoun
 
     // If backend provides an error message, use it
     if (errorDetails?.error) {
+      // For rate limit errors, throw the full error object so retryAfter can be accessed
+      if (response.status === 429 && errorDetails.retryAfter) {
+        const rateLimitError = new Error(errorDetails.error)
+        // Attach the full error details to the error object
+        ;(rateLimitError as any).errorDetails = errorDetails
+        throw rateLimitError
+      }
+      
       throw new Error(errorDetails.error)
     }
 

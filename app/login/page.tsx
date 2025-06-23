@@ -49,13 +49,15 @@ export default function Login() {
       if (error instanceof Error) {
         const errorMessage = error.message
         
-        // Check if it's a backend error message (not our status codes)
-        if (errorMessage === 'Invalid email or password') {
+        if (errorMessage.includes('Too Many Requests')) {
+          const retryAfter = (error as any).errorDetails?.retryAfter || 0
+          setError(`คุณพยายามเข้าสู่ระบบบ่อยเกินไป กรุณาลองใหม่ใน ${retryAfter} วินาที`)
+        }
+        else if (errorMessage === 'Invalid email or password') {
           setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
         } else if (errorMessage.includes('password')) {
           setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
         } else {
-          // Handle our status code errors
           switch (errorMessage) {
             case 'UNAUTHORIZED':
               setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
