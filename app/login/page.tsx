@@ -49,9 +49,19 @@ export default function Login() {
       if (error instanceof Error) {
         const errorMessage = error.message
         
-        if (errorMessage.includes('Too Many Requests')) {
-          const retryAfter = (error as any).errorDetails?.retryAfter || 0
-          setError(`คุณพยายามเข้าสู่ระบบบ่อยเกินไป กรุณาลองใหม่ใน ${retryAfter} วินาที`)
+        if (errorMessage.includes('Rate limit exceeded')) {
+          const retryMatch = errorMessage.match(/(\d+)\s*seconds?/)
+          const retryAfter = retryMatch ? parseInt(retryMatch[1], 10) : 0
+          if (retryAfter > 0) {
+            const minutes = Math.floor(retryAfter / 60)
+            const seconds = retryAfter % 60
+            const timeString = minutes > 0 
+              ? `${minutes} นาที ${seconds} วินาที`
+              : `${seconds} วินาที`
+            setError(`คุณพยายามเข้าสู่ระบบบ่อยเกินไป กรุณาลองใหม่ใน ${timeString}`)
+          } else {
+            setError('คุณพยายามเข้าสู่ระบบบ่อยเกินไป กรุณาลองใหม่อีกสักครู่')
+          }
         }
         else if (errorMessage === 'Invalid email or password') {
           setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
