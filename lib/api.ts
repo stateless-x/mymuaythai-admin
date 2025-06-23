@@ -68,27 +68,32 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCoun
   // Handle non-200 responses
   if (!response.ok) {
     let errorDetails: any = null
+    let rawErrorText = ''
     
     try {
-      const errorText = await response.text()
-      if (errorText) {
-        errorDetails = JSON.parse(errorText)
+      rawErrorText = await response.text()
+      
+      if (rawErrorText) {
+        try {
+          errorDetails = JSON.parse(rawErrorText)
+        } catch (jsonError) {
+          console.error('JSON parse error:', jsonError)
+          errorDetails = { error: rawErrorText }
+        }
       }
     } catch (parseError) {
-      console.error('Error parsing error response:', parseError)
+      console.error('Error reading response:', parseError)
     }
 
     // Log error for development
     if (process.env.NODE_ENV === 'development') {
-      console.error(`API Error:`, {
+      console.warn(`API Request Failed:`, {
         url: `${API_BASE_URL}${endpoint}`,
         method: options.method || 'GET',
         status: response.status,
         statusText: response.statusText,
-        contentType: response.headers.get('content-type'),
-        data: errorDetails,
-        requestBody: options.body,
-        responseText: response.statusText
+        errorMessage: errorDetails?.error || 'No error message provided',
+        rawResponse: rawErrorText
       })
     }
 

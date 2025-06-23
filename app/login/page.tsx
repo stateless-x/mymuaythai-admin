@@ -40,7 +40,10 @@ export default function Login() {
       setSuccess('เข้าสู่ระบบสำเร็จ กำลังเปลี่ยนเส้นทาง...')
       setTimeout(() => router.push('/dashboard'), 1500)
     } catch (error) {
-      console.error('Login error:', error)
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.info('Login attempt failed:', error instanceof Error ? error.message : 'Unknown error')
+      }
       
       // Handle specific error types
       if (error instanceof Error) {
