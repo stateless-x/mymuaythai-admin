@@ -13,8 +13,10 @@ interface User {
 
 interface AuthContextType {
   user: User | null
+  token: string | null
   login: (email: string, password: string) => Promise<boolean>
   logout: () => void
+  refreshToken: () => Promise<boolean>
   isLoading: boolean
 }
 
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -31,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (savedUser && authToken) {
       setUser(JSON.parse(savedUser))
+      setToken(authToken)
     }
     setIsLoading(false)
   }, [])
@@ -38,37 +42,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       // Authenticate with the admin users API
+      console.log('Attempting login with:', { email })
       const response = await adminUsersApi.login({ email, password })
+      console.log('Login response:', response)
+      console.log('Response keys:', Object.keys(response || {}))
+      console.log('Response.success:', response?.success)
+      console.log('Response.data:', response?.data)
       
       if (response.success && response.data) {
-        const user = {
-          id: response.data.id,
-          email: response.data.email,
-          name: response.data.email, // Use email as name since we don't have a name field
-          role: response.data.role,
+        console.log('Response.data keys:', Object.keys(response.data || {}))
+        console.log('Response.data.user:', response.data.user)
+        
+        const userData = {
+          id: response.data.user.id,
+          email: response.data.user.email,
+          name: response.data.user.email, // Use email as name since we don't have a name field
+          role: response.data.user.role,
         }
         
-        setUser(user)
-        localStorage.setItem("admin-user", JSON.stringify(user))
-        localStorage.setItem("auth-token", "admin-session") // Simple session token
+        console.log('Setting user data:', userData)
+        setUser(userData)
+        setToken(response.data.accessToken)
+        localStorage.setItem("admin-user", JSON.stringify(userData))
+        localStorage.setItem("auth-token", response.data.accessToken)
+        localStorage.setItem("refresh-token", response.data.refreshToken)
         return true
       }
       
+      console.log('Login failed: Invalid response format')
+      console.log('Expected: response.success && response.data')
+      console.log('Got: success=', response?.success, 'data=', response?.data)
       return false
     } catch (error: any) {
-      console.error('Login error:', error)
+      console.error('Login error details:', error)
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
       // Re-throw the error so the login page can handle it and show appropriate toast
       throw error
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("admin-user")
-    localStorage.removeItem("auth-token")
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const refreshTokenValue = localStorage.getItem("refresh-token")
+      if (!refreshTokenValue) {
+        logout()
+        return false
+      }
+
+      const response = await adminUsersApi.refreshToken({ refreshToken: refreshTokenValue })
+      
+      if (response.success && response.data) {
+        setToken(response.data.accessToken)
+        localStorage.setItem("auth-token", response.data.accessToken)
+        localStorage.setItem("refresh-token", response.data.refreshToken)
+        return true
+      }
+      
+      logout()
+      return false
+    } catch (error) {
+      console.error('Token refresh error:', error)
+      logout()
+      return false
+    }
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  const logout = async () => {
+    try {
+      // Call backend logout to blacklist token
+      await adminUsersApi.logout()
+    } catch (error) {
+      console.error('Logout API error:', error)
+      // Continue with local logout even if API fails
+    }
+    
+    // Clear local state
+    setUser(null)
+    setToken(null)
+    localStorage.removeItem("admin-user")
+    localStorage.removeItem("auth-token")
+    localStorage.removeItem("refresh-token")
+  }
+
+  return <AuthContext.Provider value={{ user, token, login, logout, refreshToken, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

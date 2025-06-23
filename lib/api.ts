@@ -1,6 +1,10 @@
 // API utility for MyMuayThai Backend integration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
 
+// Debug: Log the API base URL and current window location
+console.log('API_BASE_URL:', API_BASE_URL)
+console.log('Current location:', typeof window !== 'undefined' ? window.location.href : 'SSR')
+
 // Helper function to get auth token
 const getAuthToken = (): string | null => {
   if (typeof window !== "undefined") {
@@ -9,8 +13,9 @@ const getAuthToken = (): string | null => {
   return null
 }
 
-// Helper function for authenticated requests
-const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+// Helper function for authenticated requests with automatic token refresh
+const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<any> => {
+  console.log(`API Request to ${endpoint}:`, { options, retryCount })
   const token = getAuthToken()
   
   const config: RequestInit = {
@@ -22,7 +27,55 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     },
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+  const fullUrl = `${API_BASE_URL}${endpoint}`
+  console.log('Full request URL:', fullUrl)
+  console.log('Request method:', config.method || 'GET')
+  console.log('Request headers:', config.headers)
+  console.log('Request body:', config.body)
+
+  const response = await fetch(fullUrl, config)
+  console.log(`API Response from ${endpoint}:`, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries())
+  })
+  
+  // Handle 401 Unauthorized - try to refresh token once
+  if (response.status === 401 && retryCount === 0 && !endpoint.includes('/login') && !endpoint.includes('/refresh')) {
+    try {
+      const refreshToken = localStorage.getItem("refresh-token")
+      if (refreshToken) {
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/admin-users/refresh`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken }),
+        })
+        
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json()
+          if (refreshData.success && refreshData.data) {
+            localStorage.setItem("auth-token", refreshData.data.accessToken)
+            localStorage.setItem("refresh-token", refreshData.data.refreshToken)
+            
+            // Retry the original request with new token
+            return apiRequest(endpoint, options, retryCount + 1)
+          }
+        }
+      }
+    } catch (refreshError) {
+      console.error('Token refresh failed:', refreshError)
+    }
+    
+    // If refresh failed, clear tokens and redirect to login
+    localStorage.removeItem("admin-user")
+    localStorage.removeItem("auth-token")
+    localStorage.removeItem("refresh-token")
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+  }
   
   if (!response.ok) {
     let errorDetails
@@ -32,10 +85,51 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       errorDetails = await response.text()
     }
     
+    console.error(`API Error Details:`, {
+      url: `${API_BASE_URL}${endpoint}`,
+      status: response.status,
+      statusText: response.statusText,
+      errorDetails,
+      headers: Object.fromEntries(response.headers.entries())
+    })
+    
     throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`)
   }
   
-  return response.json()
+  // Handle response parsing more carefully
+  const contentType = response.headers.get('content-type')
+  console.log(`Response content-type: ${contentType}`)
+  
+  try {
+    if (contentType && contentType.includes('application/json')) {
+      // First try to get the response as text to see what we have
+      const responseText = await response.text()
+      console.log(`Raw response text: "${responseText}"`)
+      
+      if (!responseText || responseText.trim() === '') {
+        console.warn('Empty response body received')
+        return { success: false, error: 'Empty response from server' }
+      }
+      
+      try {
+        const jsonData = JSON.parse(responseText)
+        console.log(`Parsed JSON response:`, jsonData)
+        return jsonData
+      } catch (jsonError: any) {
+        console.error('JSON parsing failed:', jsonError)
+        console.error('Raw response that failed to parse:', responseText)
+        throw new Error(`Invalid JSON response: ${responseText}`)
+      }
+    } else {
+      // For non-JSON responses, return text
+      const text = await response.text()
+      console.log(`Response text:`, text)
+      return text ? { data: text } : { success: true }
+    }
+  } catch (error) {
+    console.error('Response parsing error:', error)
+    throw error
+  }
 }
 
 // Gyms API
@@ -229,6 +323,16 @@ export const adminUsersApi = {
       method: "POST", 
       body: JSON.stringify(credentials),
     }),
+  
+  // Refresh token
+  refreshToken: (tokenData: { refreshToken: string }) => 
+    apiRequest("/api/admin-users/refresh", {
+      method: "POST",
+      body: JSON.stringify(tokenData),
+    }),
+
+  // Logout (blacklist current token)
+  logout: () => apiRequest("/api/admin-users/logout"),
   
   // Get user stats (admin count and total count)
   getUserStats: () => apiRequest("/api/admin-users/stats/count"),
