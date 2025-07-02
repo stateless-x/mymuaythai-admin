@@ -25,6 +25,7 @@ import {
   trimFormData,
   validateEmail 
 } from "@/lib/utils/form-helpers"
+import { ImageUpload } from "@/components/image-upload"
 
 // Helper function to transform backend classes to frontend format
 function transformBackendClassesToPrivateClasses(backendClasses: any[]): any[] {
@@ -68,6 +69,7 @@ export interface TrainerFormData {
   yearsOfExperience: number
   privateClasses: any[]
   joinedDate?: string
+  images?: (string | { id?: string; image_url: string })[]
 }
 
 export interface TrainerFormProps {
@@ -118,6 +120,8 @@ export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: Tra
     lineId: trainer?.lineId || trainer?.line_id || "",
     yearsOfExperience: trainer?.yearsOfExperience || trainer?.exp_year || 0,
     privateClasses: trainer?.privateClasses || transformBackendClassesToPrivateClasses(trainer?.classes || []),
+    joinedDate: trainer?.joinedDate,
+    images: (trainer?.images || []) as (string | { id?: string; image_url: string })[],
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -523,6 +527,25 @@ export function TrainerForm({ trainer, provinces = [], onSubmit, onCancel }: Tra
                 disabled={isSubmitting}
               />
             )}
+
+            {/* Trainer Images */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">รูปภาพครูมวย (Trainer Images)</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  อัปโหลดรูปภาพครูมวยได้สูงสุด 5 รูป รูปภาพจะถูกเก็บไว้ใน Bunny.net CDN
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ImageUpload
+                  images={formData.images || []}
+                  onImagesChange={(newImages) => setFormData({ ...formData, images: newImages })}
+                  maxImages={5}
+                  disabled={isSubmitting}
+                  uploadUrl={trainer?.id ? `/api/trainers/${trainer.id}/images` : undefined}
+                />
+              </CardContent>
+            </Card>
 
             {/* SEO Tags */}
             <CollapsibleTagSelector

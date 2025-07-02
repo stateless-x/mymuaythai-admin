@@ -81,12 +81,12 @@ export function GymDetailView({ gym }: GymDetailViewProps) {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {gym.images.map((image, index) => (
-                <div key={`gym-image-${index}-${image}`} className="aspect-video rounded-lg overflow-hidden border">
+                <div key={`gym-image-${index}-${typeof image === 'string' ? image : (image as any).image_url}`} className="aspect-video rounded-lg overflow-hidden border">
                   <img
-                    src={image || "/placeholder.svg"}
+                    src={typeof image === 'string' ? image : (image as any).image_url}
                     alt={`${displayName} - Image ${index + 1}`}
                     className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
-                    onClick={() => window.open(image, "_blank")}
+                    onClick={() => window.open(typeof image === 'string' ? image : (image as any).image_url, "_blank")}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.src = "/placeholder.svg?height=200&width=300&query=gym image"

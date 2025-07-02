@@ -118,7 +118,7 @@ export function GymFormStep2({
 
   const [formData, setFormData] = useState({
     ...initialData,
-    images: gym?.images || [],
+    images: (gym?.images || []) as (string | { id?: string; image_url: string })[],
     tags: getTagSlugs(gym?.tags || []), // Extract tag slugs from backend data
   });
   
@@ -279,9 +279,10 @@ export function GymFormStep2({
         <CardContent>
           <ImageUpload
             images={formData.images || []}
-            onImagesChange={(images) => setFormData({ ...formData, images })}
+            onImagesChange={(newImages) => setFormData({ ...formData, images: newImages })}
             maxImages={5}
             disabled={isSubmitting}
+            uploadUrl={gym?.id ? `/api/gyms/${gym.id}/images` : undefined}
           />
         </CardContent>
       </Card>

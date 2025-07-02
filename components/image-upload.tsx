@@ -11,10 +11,17 @@ import { X, Upload, ImageIcon, Loader2 } from "lucide-react"
 import { uploadToBunny } from "@/lib/bunny-upload"
 
 interface ImageUploadProps {
-  images: string[]
-  onImagesChange: (images: string[]) => void
+  /**
+   * Array of uploaded images. Elements can be either plain CDN url strings (legacy)
+   * or objects returned by the backend in the form `{ id: string; image_url: string }`.
+   */
+  images: (string | { id?: string; image_url: string })[]
+  /** Callback when images array should be updated  */
+  onImagesChange: (images: (string | { id?: string; image_url: string })[]) => void
   maxImages?: number
   disabled?: boolean
+  /** If provided, files are sent via multipart POST to this URL (e.g. /api/gyms/:id/images). */
+  uploadUrl?: string
 }
 
 interface UploadingImage {
@@ -24,7 +31,9 @@ interface UploadingImage {
   error?: string
 }
 
-export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = false }: ImageUploadProps) {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = false, uploadUrl }: ImageUploadProps) {
   const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([])
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -50,57 +59,108 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
     const remainingSlots = maxImages - images.length - uploadingImages.length
     const filesToUpload = validFiles.slice(0, remainingSlots)
 
-    filesToUpload.forEach(uploadFile)
+    if (uploadUrl) {
+      bulkUpload(filesToUpload)
+    } else {
+      filesToUpload.forEach(uploadFileDirect)
+    }
   }
 
   const uploadFile = async (file: File) => {
-    const uploadId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
+    // This function body is intentionally left empty – retained only to avoid breaking legacy imports.
+    console.warn('uploadFile is deprecated and will be removed in future releases.')
+  }
 
-    // Add to uploading state
-    const newUploadingImage: UploadingImage = {
-      id: uploadId,
-      file,
-      progress: 0,
-    }
-
-    setUploadingImages((prev) => [...prev, newUploadingImage])
-
-    try {
-      // Simulate progress (since Bunny.net doesn't provide real progress)
-      const progressInterval = setInterval(() => {
-        setUploadingImages((prev) =>
-          prev.map((img) => (img.id === uploadId ? { ...img, progress: Math.min(img.progress + 10, 90) } : img)),
-        )
-      }, 200)
-
-      // Upload to Bunny.net
-      const result = await uploadToBunny(file, `gym-${Date.now()}`)
-
-      clearInterval(progressInterval)
-
+  /**
+   * Legacy direct-to-Bunny upload (one request per file). Will be removed once all
+   * screens migrate to the backend upload flow.
+   */
+  const uploadFileDirect = async (file: File) => {
+    if (!uploadUrl) {
+      // Direct upload to Bunny (legacy flow)
+      const result = await uploadToBunny(file, `image-${Date.now()}`)
       if (result.success && result.url) {
-        // Add to images array
         onImagesChange([...images, result.url])
-
-        // Remove from uploading state
-        setUploadingImages((prev) => prev.filter((img) => img.id !== uploadId))
       } else {
-        // Show error
-        setUploadingImages((prev) =>
-          prev.map((img) =>
-            img.id === uploadId ? { ...img, progress: 100, error: result.error || "Upload failed" } : img,
-          ),
-        )
+        throw new Error(result.error || 'Upload failed')
       }
-    } catch (error) {
-      setUploadingImages((prev) =>
-        prev.map((img) => (img.id === uploadId ? { ...img, progress: 100, error: "Upload failed" } : img)),
-      )
     }
   }
 
-  const removeImage = (index: number) => {
+  /**
+   * Bulk upload files to backend in a single multipart request.
+   */
+  const bulkUpload = async (files: File[]) => {
+    // Mark all files as uploading
+    const newUploading: UploadingImage[] = files.map((file) => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      file,
+      progress: 0,
+    }))
+    setUploadingImages((prev) => [...prev, ...newUploading])
+
+    try {
+      const fullUrl = uploadUrl!.startsWith('http') ? uploadUrl! : `${API_BASE_URL}${uploadUrl}`
+      const formData = new FormData()
+      files.forEach((file) => formData.append('file', file))
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        let json: any = null;
+        try {
+          json = await response.json();
+        } catch (err) {
+          // Empty or invalid JSON – proceed without it
+        }
+
+        const uploadedItems = (json?.data || []).map((item: any) =>
+          item?.image_url ? item : { image_url: item },
+        )
+
+        const newImagesArr = uploadedItems.length > 0 ? uploadedItems : ([] as any);
+        if (newImagesArr.length === 0 && json === null) {
+          // Fallback: no JSON but request succeeded – assume server stored names sequentially
+          // We can't know URLs; refresh will fetch latest.
+        } else {
+          onImagesChange([...images, ...newImagesArr])
+        }
+      } else {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+      }
+    } catch (err: any) {
+      console.error('Bulk upload error:', err)
+      setUploadingImages((prev) =>
+        prev.map((up) => ({ ...up, error: err?.message || 'Upload failed', progress: 100 })),
+      )
+    } finally {
+      // Clear uploading states for these files
+      setUploadingImages((prev) => prev.filter((up) => !files.includes(up.file)))
+    }
+  }
+
+  const removeImage = async (index: number) => {
+    const target = images[index]
     const newImages = images.filter((_, i) => i !== index)
+
+    // If the image came from backend (object with id) and we have uploadUrl, call DELETE
+    if (uploadUrl && typeof target !== 'string' && target?.id) {
+      try {
+        const entityMatch = uploadUrl.match(/\/api\/(gyms|trainers)\//)
+        if (entityMatch) {
+          const entity = entityMatch[1]
+          const deleteUrl = `${API_BASE_URL}/api/${entity}/images/${target.id}`
+          await fetch(deleteUrl, { method: 'DELETE', credentials: 'include' })
+        }
+      } catch (err) {
+        console.error('Failed to delete image on backend:', err)
+      }
+    }
+
     onImagesChange(newImages)
   }
 
@@ -216,10 +276,10 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {images.map((image, index) => (
-              <Card key={`image-${index}-${image}`} className="overflow-hidden">
+              <Card key={`image-${index}-${typeof image === 'string' ? image : image.image_url}`} className="overflow-hidden">
                 <CardContent className="p-0 relative group">
                   <img
-                    src={image || "/placeholder.svg"}
+                    src={typeof image === 'string' ? image : image.image_url}
                     alt={`Gym image ${index + 1}`}
                     className="w-full h-32 object-cover"
                     onError={(e) => {

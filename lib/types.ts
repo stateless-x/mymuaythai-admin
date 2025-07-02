@@ -69,7 +69,7 @@ export interface Gym {
   is_active: boolean
   created_at: string
   updated_at?: string
-  images?: string[]
+  images?: (string | { id?: string; image_url: string })[]
   tags?: string[]
   associatedTrainers?: string[]
   province_id?: number
