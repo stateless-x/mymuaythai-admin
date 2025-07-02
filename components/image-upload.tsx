@@ -48,8 +48,8 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
       if (!file.type.startsWith("image/")) {
         return false
       }
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
         return false
       }
       return true
@@ -130,10 +130,13 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
           onImagesChange([...images, ...newImagesArr])
         }
       } else {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+        const errMsg = response.status === 413 ? 'ไฟล์ใหญ่เกิน 5 MB' : `Upload failed: ${response.status} ${response.statusText}`
+        throw new Error(errMsg)
       }
     } catch (err: any) {
       console.error('Bulk upload error:', err)
+      const { toast } = await import('sonner');
+      toast.error('ไม่สามารถอัปโหลดรูปภาพ', { description: err.message });
       setUploadingImages((prev) =>
         prev.map((up) => ({ ...up, error: err?.message || 'Upload failed', progress: 100 })),
       )
@@ -276,9 +279,9 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {images.map((image, index) => (
-              <Card key={`image-${index}-${typeof image === 'string' ? image : image.image_url}`} className="overflow-hidden">
+              <Card key={`image-${index}-${typeof image === 'string' ? image : image.id ?? image.image_url}`} className="overflow-hidden">
                 <CardContent className="p-0 relative group">
-                  <img
+                <img
                     src={typeof image === 'string' ? image : image.image_url}
                     alt={`Gym image ${index + 1}`}
                     className="w-full h-32 object-cover"
