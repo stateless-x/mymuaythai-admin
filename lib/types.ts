@@ -31,12 +31,13 @@ export interface Trainer {
   province_id?: number
   tags?: string[]
   classes?: any[]
-  trainerClasses?: any[]
+  trainerClasses?: ClassData[]
   created_at: string
   updated_at?: string
+  images?: (string | { id?: string; image_url: string })[]
 }
 
-export interface PrivateClass {
+export interface ClassData {
   id: string
   name: {
     th: string
@@ -51,7 +52,7 @@ export interface PrivateClass {
   currency: string
   maxStudents: number
   isActive: boolean
-  isPrivateClass?: boolean
+  isPrivate?: boolean
   createdDate: string
 }
 
@@ -98,8 +99,6 @@ export interface AdminUser {
   updated_at: string
 }
 
-
-
 export const FACILITY_OPTIONS = [
   "Free Weights",
   "Cardio Equipment",
@@ -122,3 +121,55 @@ export const FACILITY_OPTIONS = [
   "Massage Therapy",
   "Childcare",
 ] as const
+
+export interface TrainerWithDetails extends Omit<Trainer, 'tags' | 'images' | 'classes'> {
+  classes: TrainerClassWithDetails[]
+  tags: Tag[]
+  images: TrainerImage[]
+  primaryGym?: Gym
+}
+
+export interface TrainerClass {
+  id: string
+  name: string
+  description: string
+  duration: number
+  price: number
+  currency: string
+  maxStudents: number
+  isActive: boolean
+  isPrivateClass?: boolean
+  createdDate: string
+  updated_at: string
+}
+
+export interface TrainerImage {
+  id: string
+  trainer_id: string
+  image_url: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TrainerClassWithDetails extends TrainerClass {
+  class: StandardClass | null
+}
+
+export interface StandardClass {
+  id: string
+  name_th: string
+  name_en: string
+  description_th: string | null
+  description_en: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface User {
+  id: string
+  email: string
+  role: 'admin' | 'staff'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}

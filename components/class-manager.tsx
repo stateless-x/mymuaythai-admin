@@ -25,11 +25,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import type { PrivateClass } from "@/lib/types"
+import type { ClassData } from "@/lib/types"
 
-interface PrivateClassManagerProps {
-  privateClasses: PrivateClass[]
-  onClassesChange: (classes: PrivateClass[]) => void
+interface ClassManagerProps {
+  classes: ClassData[]
+  onClassesChange: (classes: ClassData[]) => void
   disabled?: boolean
 }
 
@@ -46,7 +46,7 @@ interface ClassFormData {
   price: string // Changed to string for better input handling
   maxStudents: string // Changed to string for better input handling
   isActive: boolean
-  isPrivateClass: boolean // Add private class type
+  isPrivate: boolean // Add private class type
 }
 
 const defaultFormData: ClassFormData = {
@@ -56,7 +56,7 @@ const defaultFormData: ClassFormData = {
   price: "1000",
   maxStudents: "1",
   isActive: true,
-  isPrivateClass: true,
+  isPrivate: true,
 }
 
 // Constants
@@ -159,8 +159,8 @@ function AddForm({ formData, setFormData, errors, onPriceChange, onDurationChang
         <div className="space-y-2">
           <Label htmlFor="add-class-type">ประเภทคลาส</Label>
           <Select
-            value={formData.isPrivateClass ? "private" : "group"}
-            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
+            value={formData.isPrivate ? "private" : "group"}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivate: value === "private" }))}
           >
             <SelectTrigger className={errors.classType ? "border-red-500" : ""}>
               <SelectValue placeholder="เลือกประเภทคลาส" />
@@ -324,8 +324,8 @@ function EditForm({ formData, setFormData, errors, onPriceChange, onDurationChan
         <div className="space-y-2">
           <Label htmlFor="edit-class-type">ประเภทคลาส</Label>
           <Select
-            value={formData.isPrivateClass ? "private" : "group"}
-            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivateClass: value === "private" }))}
+            value={formData.isPrivate ? "private" : "group"}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, isPrivate: value === "private" }))}
           >
             <SelectTrigger className={errors.classType ? "border-red-500" : ""}>
               <SelectValue placeholder="เลือกประเภทคลาส" />
@@ -399,10 +399,11 @@ function EditForm({ formData, setFormData, errors, onPriceChange, onDurationChan
   )
 }
 
-export function PrivateClassManager({ privateClasses, onClassesChange, disabled = false }: PrivateClassManagerProps) {
+export function ClassManager({ classes, onClassesChange, disabled = false }: ClassManagerProps) {
+  console.log("classes", classes);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingClass, setEditingClass] = useState<PrivateClass | null>(null)
+  const [editingClass, setEditingClass] = useState<ClassData | null>(null)
   
   // Separate form data for add and edit operations
   const [addFormData, setAddFormData] = useState<ClassFormData>(defaultFormData)
@@ -412,7 +413,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
   // Check if maximum classes limit is reached
-  const isMaxClassesReached = privateClasses.length >= MAX_CLASSES_LIMIT
+  const isMaxClassesReached = classes.length >= MAX_CLASSES_LIMIT
 
   // Handle add button click with limit check
   const handleAddButtonClick = useCallback(() => {
@@ -522,14 +523,14 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
 
   const handleAddClass = useCallback(() => {
     // Double-check the limit before adding
-    if (privateClasses.length >= MAX_CLASSES_LIMIT) {
+    if (classes.length >= MAX_CLASSES_LIMIT) {
       toast.error(`ไม่สามารถเพิ่มคลาสได้อีก จำนวนคลาสสูงสุดคือ ${MAX_CLASSES_LIMIT} คลาส`)
       return
     }
 
     if (!validateForm(addFormData, setAddErrors)) return
 
-    const newClass: PrivateClass = {
+    const newClass: ClassData = {
       id: Date.now().toString(),
       name: addFormData.name,
       description: addFormData.description,
@@ -538,21 +539,21 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
       currency: "THB",
       maxStudents: Number(addFormData.maxStudents) || 1,
       isActive: addFormData.isActive,
-      isPrivateClass: addFormData.isPrivateClass,
+      isPrivate: addFormData.isPrivate,
       createdDate: new Date().toISOString().split("T")[0],
     }
 
-    onClassesChange([...privateClasses, newClass])
+    onClassesChange([...classes, newClass])
     setAddFormData({ ...defaultFormData })
     setAddErrors({})
     setIsAddDialogOpen(false)
     toast.success("เพิ่มคลาสสำเร็จ")
-  }, [addFormData, privateClasses, onClassesChange, validateForm])
+  }, [addFormData, classes, onClassesChange, validateForm])
 
   const handleEditClass = useCallback(() => {
     if (!editingClass || !validateForm(editFormData, setEditErrors)) return
 
-    const updatedClasses = privateClasses.map((cls) =>
+    const updatedClasses = classes.map((cls) =>
       cls.id === editingClass.id
         ? {
             ...cls,
@@ -562,7 +563,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
             price: Number(editFormData.price),
             maxStudents: Number(editFormData.maxStudents) || 1,
             isActive: editFormData.isActive,
-            isPrivateClass: editFormData.isPrivateClass,
+            isPrivate: editFormData.isPrivate,
           }
         : cls,
     )
@@ -573,23 +574,23 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     setEditFormData({ ...defaultFormData })
     setEditErrors({})
     toast.success("แก้ไขคลาสสำเร็จ")
-  }, [editingClass, editFormData, privateClasses, onClassesChange, validateForm])
+  }, [editingClass, editFormData, classes, onClassesChange, validateForm])
 
   const handleDeleteClass = useCallback((classId: string) => {
-    onClassesChange(privateClasses.filter((cls) => cls.id !== classId))
+    onClassesChange(classes.filter((cls) => cls.id !== classId))
     toast.success("ลบคลาสสำเร็จ")
-  }, [privateClasses, onClassesChange])
+  }, [classes, onClassesChange])
 
-  const openEditDialog = useCallback((privateClass: PrivateClass) => {
-    setEditingClass(privateClass)
+  const openEditDialog = useCallback((classData: ClassData) => {
+    setEditingClass(classData)
     setEditFormData({
-      name: privateClass.name,
-      description: privateClass.description,
-      duration: privateClass.duration.toString(),
-      price: privateClass.price.toString(),
-      maxStudents: privateClass.maxStudents.toString(),
-      isActive: privateClass.isActive,
-      isPrivateClass: privateClass.isPrivateClass ?? true,
+      name: classData.name,
+      description: classData.description,
+      duration: classData.duration.toString(),
+      price: classData.price.toString(),
+      maxStudents: classData.maxStudents.toString(),
+      isActive: classData.isActive,
+      isPrivate: classData.isPrivate ?? true,
     })
     setEditErrors({}) // Clear errors when opening edit dialog
     setIsEditDialogOpen(true)
@@ -615,8 +616,9 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
     return `${mins}m`
   }, [])
 
-  const getClassTypeDisplay = useCallback((isPrivateClass: boolean | undefined) => {
-    return (isPrivateClass ?? true) ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม"
+  const getClassTypeDisplay = useCallback((isPrivate: boolean | undefined) => {
+    console.log("isPrivate", isPrivate)
+    return (isPrivate ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม");
   }, [])
 
   return (
@@ -626,7 +628,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
           <div>
             <CardTitle className="text-lg">คลาสส่วนตัวและราคา</CardTitle>
             <p className="text-sm text-muted-foreground">
-              จัดการเซสชันฝึกส่วนตัวและอัตราค่าบริการของคุณ ({privateClasses.length}/{MAX_CLASSES_LIMIT} คลาส)
+              จัดการเซสชันฝึกส่วนตัวและอัตราค่าบริการของคุณ ({classes.length}/{MAX_CLASSES_LIMIT} คลาส)
             </p>
           </div>
           {!disabled && (
@@ -678,7 +680,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
         </div>
       </CardHeader>
       <CardContent>
-        {privateClasses.length === 0 ? (
+        {classes.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">ยังไม่มีคลาสส่วนตัว</p>
             <p className="text-sm text-muted-foreground mt-1">เพิ่มคลาสแรกของคุณเพื่อเริ่มต้น (สูงสุด {MAX_CLASSES_LIMIT} คลาส)</p>
@@ -697,39 +699,40 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {privateClasses.map((privateClass) => (
-                <TableRow key={privateClass.id}>
+              {classes.map((c) => (
+                
+                <TableRow key={c.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{privateClass.name.th}</div>
-                      <div className="text-sm text-muted-foreground">{privateClass.name.en}</div>
+                      <div className="font-medium">{c.name.th}</div>
+                      <div className="text-sm text-muted-foreground">{c.name.en}</div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge 
-                      variant={privateClass.isPrivateClass !== false ? "default" : "secondary"}
-                      className={privateClass.isPrivateClass !== false ? "bg-blue-500 hover:bg-blue-600" : "bg-green-500 hover:bg-green-600 text-white"}
+                      variant={c.isPrivate !== false ? "default" : "secondary"}
+                      className={c.isPrivate !== false ? "bg-blue-500 hover:bg-blue-600" : "bg-green-500 hover:bg-green-600 text-white"}
                     >
-                      {getClassTypeDisplay(privateClass.isPrivateClass)}
+                      {getClassTypeDisplay(c.isPrivate)}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDuration(privateClass.duration)}</TableCell>
-                  <TableCell>{privateClass.maxStudents} คน</TableCell>
-                  <TableCell>{formatPrice(privateClass.price, privateClass.currency)}</TableCell>
+                  <TableCell>{formatDuration(c.duration)}</TableCell>
+                  <TableCell>{c.maxStudents} คน</TableCell>
+                  <TableCell>{formatPrice(c.price, c.currency)}</TableCell>
                   <TableCell>
-                    <Badge variant={privateClass.isActive ? "default" : "secondary"}>
-                      {privateClass.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
+                    <Badge variant={c.isActive ? "default" : "secondary"}>
+                      {c.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
-                      <Dialog open={isEditDialogOpen && editingClass?.id === privateClass.id} onOpenChange={(open) => {
+                      <Dialog open={isEditDialogOpen && editingClass?.id === c.id} onOpenChange={(open) => {
                         if (!open) {
                           closeEditDialog()
                         }
                       }}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" onClick={() => openEditDialog(privateClass)}>
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(c)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
@@ -771,7 +774,7 @@ export function PrivateClassManager({ privateClasses, onClassesChange, disabled 
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteClass(privateClass.id)}>
+                            <AlertDialogAction onClick={() => handleDeleteClass(c.id)}>
                               ลบ
                             </AlertDialogAction>
                           </AlertDialogFooter>

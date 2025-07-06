@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { ProtectedRoute } from "@/components/protected-route"
-import { TrainerForm, type TrainerFormData } from "@/components/trainer-form"
+import { TrainerFormMultiStep } from "@/components/trainer-form-multi-step"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -58,7 +58,6 @@ export default function TrainersPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // Add a refresh trigger to force re-fetching
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   
   const [pagination, setPagination] = useState({
@@ -72,28 +71,25 @@ export default function TrainersPage() {
     setSortBy("desc")
   }, [])
 
-  // Single useEffect to handle all data fetching
   useEffect(() => {
     const fetchData = async () => {
       if (!sortField || !sortBy) {
         return;
       }
       try {
-        // Show search loading only if we're searching, not on initial load
         if (debouncedSearchTerm) {
           setIsSearching(true)
         } else {
           setIsLoading(true)
         }
         
-        // Use correct parameter names for trainers API
         const trainersParams = {
           page: pagination.page,
           pageSize: pagination.pageSize,
           searchTerm: debouncedSearchTerm || undefined,
           includeInactive: includeInactive,
-          includeClasses: true, // Always include classes to show private classes for freelancers
-          includeTags: true, // Always include tags to display trainer specializations
+          includeClasses: true,
+          includeTags: true,
           isFreelance: freelancerFilter === 'all' ? undefined : freelancerFilter === 'freelancer',
           sortField: sortField,
           sortBy: sortBy,
@@ -105,16 +101,13 @@ export default function TrainersPage() {
           provincesApi.getAll()
         ])
         
-        // Remove client-side filtering - let backend handle everything
         const trainersData = trainersResponse.data?.items || [];
         setTrainers(trainersData);
         
-        // Use the pagination from response, but ensure it makes sense
         const totalFromResponse = trainersResponse.data?.total || trainersData.length;
         const pageSizeFromResponse = trainersResponse.data?.pageSize || pagination.pageSize;
         const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
         
-        // If current page exceeds available pages, go to the last available page
         const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
         
         setPagination(prev => ({ 
@@ -124,9 +117,7 @@ export default function TrainersPage() {
           pageSize: pageSizeFromResponse
         }));
         
-        // If we had to adjust the page, refetch with the correct page
         if (validPage !== pagination.page && totalPages > 0) {
-          // Don't create infinite loop - only refetch if we haven't already adjusted
           return;
         }
         
@@ -146,7 +137,6 @@ export default function TrainersPage() {
     fetchData()
   }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, freelancerFilter, sortField, sortBy, refreshTrigger])
 
-  // Reset to page 1 when search term or filters change
   useEffect(() => {
     if (pagination.page !== 1) {
       setPagination(prev => ({ ...prev, page: 1 }))
@@ -162,13 +152,11 @@ export default function TrainersPage() {
   }, []);
 
   const refreshData = useCallback(() => {
-    // Force a re-fetch by incrementing the refresh trigger
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
   const closeEditDialog = () => {
     setEditingTrainer(null)
-    // Refresh data to ensure we have the latest state after any edits
     refreshData()
   }
 
@@ -183,7 +171,6 @@ export default function TrainersPage() {
     const diffInMonths = Math.floor(diffInDays / 30)
     const diffInYears = Math.floor(diffInDays / 365)
 
-    // Show relative time for recent dates
     if (diffInSeconds < 60) {
       return "เมื่อสักครู่"
     } else if (diffInMinutes < 60) {
@@ -214,138 +201,9 @@ export default function TrainersPage() {
     })
   }
 
-  // Transform backend trainer data to form data structure
-  const transformTrainerToFormData = (trainer: Trainer): TrainerFormData => {
-    // Transform tags: if they are tag objects, extract slugs; if they are already slugs, use as-is
-    let tagSlugs: string[] = [];
-    if (trainer.tags && Array.isArray(trainer.tags)) {
-      tagSlugs = trainer.tags.map((tag: any) => {
-        // If tag is an object with slug property, extract the slug
-        if (typeof tag === 'object' && tag.slug) {
-          return tag.slug;
-        }
-        // If tag is already a string (slug), use as-is
-        if (typeof tag === 'string') {
-          return tag;
-        }
-        // Fallback: should not happen but handle gracefully
-        return '';
-      }).filter(slug => slug !== ''); // Remove empty slugs
-    }
-    
-    return {
-      id: trainer.id,
-      firstName: { th: trainer.first_name_th || "", en: trainer.first_name_en || "" },
-      lastName: { th: trainer.last_name_th || "", en: trainer.last_name_en || "" },
-      email: trainer.email || "",
-      phone: trainer.phone || "",
-      status: trainer.is_active ? "active" : "inactive",
-      province_id: trainer.province?.id || null,
-      tags: tagSlugs, // Use extracted tag slugs
-      isFreelancer: trainer.is_freelance,
-      bio: { th: trainer.bio_th || "", en: trainer.bio_en || "" },
-      lineId: trainer.line_id || "",
-      yearsOfExperience: trainer.exp_year || 0,
-      privateClasses: transformBackendClassesToPrivateClasses(trainer.classes || [])
-    }
-  }
-
-  // Helper function to transform backend classes to frontend format
-  function transformBackendClassesToPrivateClasses(backendClasses: any[]): any[] {
-    if (!backendClasses || !Array.isArray(backendClasses)) {
-      return []
-    }
-
-    return backendClasses
-      .map(cls => ({
-        id: cls.id || `temp-${Date.now()}-${Math.random()}`,
-        name: {
-          th: cls.name_th || "",
-          en: cls.name_en || "",
-        },
-        description: {
-          th: cls.description_th || "",
-          en: cls.description_en || "",
-        },
-        duration: cls.duration_minutes || 60,
-        price: cls.price ? Math.round(cls.price / 100) : 1000, // Convert from satang to baht
-        currency: "THB",
-        maxStudents: cls.max_students || 1,
-        isActive: cls.is_active !== false,
-        isPrivateClass: cls.is_private_class !== false, // Map backend is_private_class to frontend isPrivateClass
-        createdDate: cls.created_at ? new Date(cls.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      }))
-  }
-
-  // Helper function to transform frontend PrivateClass back to backend format
-  function transformPrivateClassesToBackend(privateClasses: any[]): any[] {
-    if (!privateClasses || !Array.isArray(privateClasses)) {
-      return []
-    }
-
-    return privateClasses.map(cls => ({
-      name: {
-        th: cls.name?.th || "",
-        en: cls.name?.en || "",
-      },
-      description: {
-        th: cls.description?.th || "",
-        en: cls.description?.en || "",
-      },
-      duration: cls.duration || 60,
-      maxStudents: cls.maxStudents || 1,
-      price: cls.price || 1000, // Keep in baht as backend will convert to satang
-      isActive: cls.isActive !== false,
-      isPrivateClass: cls.isPrivateClass !== false, // Map frontend isPrivateClass to backend is_private_class
-    }))
-  }
-
-  // Transform form data to backend API structure
-  const transformFormDataToApi = async (formData: TrainerFormData) => {
-    try {
-      // Convert tag slugs to tag objects for backend submission
-      const tagObjects = await convertTagSlugsToTagObjects(formData.tags || []);
-      
-      console.log("DEBUG - Tag conversion for trainer:");
-      console.log("- formData.tags (slugs):", formData.tags);
-      console.log("- tagObjects:", tagObjects);
-      
-      // Note: No gym_id is sent from here. Assignment is handled in the Gym management section.
-      return {
-        first_name_th: formData.firstName.th,
-        first_name_en: formData.firstName.en,
-        last_name_th: formData.lastName.th,
-        last_name_en: formData.lastName.en,
-        email: formData.email,
-        phone: formData.phone, // Already cleaned in the form component
-        is_active: formData.status === "active",
-        province_id: formData.province_id,
-        tags: tagObjects, // Use tag objects instead of creating them from names
-        is_freelance: formData.isFreelancer,
-        bio_th: formData.bio.th,
-        bio_en: formData.bio.en,
-        line_id: formData.lineId,
-        exp_year: formData.yearsOfExperience,
-        // `classes` needs to be transformed for the API
-        classes: (formData.privateClasses || []).map(cls => ({
-          name: { th: cls.name.th, en: cls.name.en },
-          description: { th: cls.description.th, en: cls.description.en },
-          duration: cls.duration,
-          price: cls.price,
-          maxStudents: cls.maxStudents,
-          isPrivateClass: true,
-          isActive: cls.isActive
-        }))
-      }
-    } catch (error) {
-      console.error('Error converting tags for trainer submission:', error);
-      throw error;
-    }
-  }
-
   const toggleCreatedSort = () => {
-    if (sortField === "created_at") {
-      setSortBy(sortBy === "desc" ? "asc" : "desc")
+    if (sortField === "created_at" && sortBy === "desc") {
+      setSortBy("asc")
     } else {
       setSortField("created_at")
       setSortBy("desc")
@@ -353,56 +211,66 @@ export default function TrainersPage() {
   }
 
   const toggleUpdatedSort = () => {
-    if (sortField === "updated_at") {
-      setSortBy(sortBy === "desc" ? "asc" : "desc")
+    if (sortField === "updated_at" && sortBy === "desc") {
+      setSortBy("asc")
     } else {
       setSortField("updated_at")
       setSortBy("desc")
     }
   }
 
-  const handleAddTrainer = async (formData: TrainerFormData) => {
+  const handleAddTrainer = async (trainerData: Partial<Trainer>) => {
     try {
-      const trimmedData = trimFormData(formData)
-      const apiData = await transformFormDataToApi(trimmedData)
-      await trainersApi.create(apiData)
+      await trainersApi.create(trainerData)
       toast.success("สร้างครูมวยสำเร็จ")
       setIsAddDialogOpen(false)
       refreshData()
-    } catch (err) {
-      console.error("Error creating trainer:", err)
-      toast.error(err instanceof Error ? err.message : "ไม่สามารถสร้างครูมวยได้")
+    } catch (error) {
+      console.error("Error creating trainer:", error)
+      toast.error("ไม่สามารถสร้างครูมวยได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      })
+    }
+  }
+  
+  const handleFinalUpdate = async (trainerData: Partial<Trainer>) => {
+    if (!editingTrainer?.id) return
+    try {
+      await trainersApi.update(editingTrainer.id, trainerData)
+      toast.success("อัปเดตข้อมูลครูมวยสำเร็จ")
+      closeEditDialog()
+    } catch (error) {
+      console.error("Error updating trainer:", error)
+      toast.error("ไม่สามารถอัปเดตข้อมูลครูมวยได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      })
     }
   }
 
-  const handleEditTrainer = async (formData: TrainerFormData) => {
-    if (!editingTrainer) return
-
+  const handlePartialUpdate = async (trainerData: Partial<Trainer>) => {
+    if (!editingTrainer?.id) return
     try {
-      const trimmedData = trimFormData(formData)
-      const apiData = await transformFormDataToApi(trimmedData)
-      await trainersApi.update(editingTrainer.id, apiData)
-      toast.success("อัพเดทครูมวยสำเร็จ")
-      setEditingTrainer(null)
+      const response = await trainersApi.update(editingTrainer.id, trainerData)
+      setEditingTrainer(response.data)
+      toast.success("บันทึกข้อมูลชั่วคราวสำเร็จ")
       refreshData()
-    } catch (err) {
-      console.error("Error updating trainer:", err)
-      toast.error(err instanceof Error ? err.message : "ไม่สามารถอัพเดทครูมวยได้")
+    } catch (error) {
+      console.error("Error performing partial update:", error)
+      toast.error("ไม่สามารถบันทึกข้อมูลชั่วคราวได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      })
+      throw error
     }
   }
 
   const handleDeleteTrainer = async (trainerId: string) => {
     try {
       await trainersApi.delete(trainerId)
-      
-      // Simple optimistic update: Always remove from current view
       setTrainers(prev => prev.filter(trainer => trainer.id !== trainerId))
       setPagination(prev => ({ ...prev, total: prev.total - 1 }))
-      
       toast.success("ลบครูมวยสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบครูมวยได้")
-      // On error, refresh to get correct state
       refreshData()
     }
   }
@@ -472,10 +340,14 @@ export default function TrainersPage() {
                     </DialogHeader>
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
-                    <TrainerForm 
-                      onSubmit={handleAddTrainer} 
-                      provinces={provinces}
+                    <TrainerFormMultiStep
+                      onSubmit={handleAddTrainer}
                       onCancel={() => setIsAddDialogOpen(false)}
+                      onSavePartial={async () => {}}
+                      onComplete={() => {
+                        setIsAddDialogOpen(false)
+                        refreshData()
+                      }}
                     />
                   </div>
                 </DialogContent>
@@ -648,13 +520,16 @@ export default function TrainersPage() {
                                   </DialogHeader>
                                 </div>
                                 <div className="flex-1 overflow-y-auto px-6 pb-6">
-                                  <TrainerForm 
-                                    key={`form-${trainer.id}`}
-                                    trainer={editingTrainer} 
-                                    provinces={provinces}
-                                    onSubmit={handleEditTrainer}
-                                    onCancel={() => setEditingTrainer(null)}
-                                  />
+                                  {editingTrainer && (
+                                    <TrainerFormMultiStep
+                                      trainer={editingTrainer ?? undefined}
+                                      onSubmit={handleFinalUpdate}
+                                      onCancel={closeEditDialog}
+                                      onSavePartial={handlePartialUpdate}
+                                      onComplete={closeEditDialog}
+                                      fetchTrainerData={refreshData}
+                                    />
+                                  )}
                                 </div>
                               </DialogContent>
                             </Dialog>
@@ -709,10 +584,7 @@ export default function TrainersPage() {
 
 function PaginationControls({ page, total, pageSize, onPageChange }: { page: number, total: number, pageSize: number, onPageChange: (page: number) => void }) {
   const totalPages = Math.ceil(total / pageSize)
-
-  // Always show pagination if there are more than pageSize items, regardless of what backend says
   const shouldShowPagination = total > pageSize || totalPages > 1
-
   if (!shouldShowPagination) {
     return null
   }
@@ -759,32 +631,3 @@ function PaginationControls({ page, total, pageSize, onPageChange }: { page: num
     </div>
   )
 }
-
-// Helper function to convert tag slugs to tag objects with IDs
-const convertTagSlugsToTagObjects = async (tagSlugs: string[]): Promise<Tag[]> => {
-  if (!tagSlugs || tagSlugs.length === 0) {
-    return [];
-  }
-  
-  try {
-    // Get tag objects from slugs
-    const tagPromises = tagSlugs.map(async (slug) => {
-      try {
-        // Search for tags and find the one with matching slug
-        const response = await tagsApi.getAll({ searchTerm: slug, pageSize: 10 });
-        const tags = response.data?.items || response.data || response;
-        const foundTag = tags.find((tag: any) => tag.slug === slug);
-        return foundTag || null;
-      } catch (err) {
-        console.error(`Failed to get tag with slug: ${slug}`, err);
-        return null;
-      }
-    });
-    
-    const tags = await Promise.all(tagPromises);
-    return tags.filter((tag): tag is Tag => tag !== null);
-  } catch (error) {
-    console.error('Error converting tag slugs to objects:', error);
-    return [];
-  }
-}; 
