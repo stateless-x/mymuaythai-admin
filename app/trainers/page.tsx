@@ -252,7 +252,6 @@ export default function TrainersPage() {
     try {
       const response = await trainersApi.update(editingTrainer.id, trainerData)
       setEditingTrainer(response.data)
-      toast.success("บันทึกข้อมูลชั่วคราวสำเร็จ")
       refreshData()
     } catch (error) {
       console.error("Error performing partial update:", error)

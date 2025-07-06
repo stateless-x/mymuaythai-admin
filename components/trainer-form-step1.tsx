@@ -20,10 +20,9 @@ interface TrainerFormStep1Props {
   onNext: (data: Partial<Trainer>) => void
   onCancel: () => void
   onSave: (data: Partial<Trainer>) => Promise<void>
-  onSuccess: () => void
 }
 
-export function TrainerFormStep1({ trainer, onNext, onCancel, onSave, onSuccess }: TrainerFormStep1Props) {
+export function TrainerFormStep1({ trainer, onNext, onCancel, onSave }: TrainerFormStep1Props) {
   const [formData, setFormData] = useState({
     first_name_th: trainer?.first_name_th || "",
     last_name_th: trainer?.last_name_th || "",
@@ -95,7 +94,6 @@ export function TrainerFormStep1({ trainer, onNext, onCancel, onSave, onSuccess 
       await onSave(cleanedData)
       const { toast } = await import('sonner')
       toast.success("บันทึกข้อมูลสำเร็จ", { description: "ข้อมูลของคุณได้รับการบันทึกแล้ว" })
-      onSuccess()
     } catch (error) {
       console.error("Error saving:", error)
       const { toast } = await import('sonner')

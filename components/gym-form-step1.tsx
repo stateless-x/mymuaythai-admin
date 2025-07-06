@@ -169,7 +169,8 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
       await onSave(cleanedData)
       const { toast } = await import('sonner')
       toast.success("บันทึกข้อมูลสำเร็จ", {
-        description: "ข้อมูลของคุณได้รับการบันทึกแล้ว"
+        description: "ข้อมูลของคุณได้รับการบันทึกแล้ว",
+        duration: 1000,
       })
       // Call onSuccess to indicate successful save
       onSuccess()
