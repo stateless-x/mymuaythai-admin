@@ -221,29 +221,34 @@ export default function TrainersPage() {
 
   const handleAddTrainer = async (trainerData: Partial<Trainer>) => {
     try {
-      await trainersApi.create(trainerData)
-      toast.success("สร้างครูมวยสำเร็จ")
-      setIsAddDialogOpen(false)
-      refreshData()
+      const newTrainer = await trainersApi.create(trainerData)
+      // toast.success("สร้างครูมวยสำเร็จ")
+      return newTrainer.data || newTrainer
     } catch (error) {
       console.error("Error creating trainer:", error)
       toast.error("ไม่สามารถสร้างครูมวยได้", {
         description: error instanceof Error ? error.message : "Unknown error",
       })
+      throw error
     }
   }
   
   const handleFinalUpdate = async (trainerData: Partial<Trainer>) => {
-    if (!editingTrainer?.id) return
+    const trainerId = trainerData.id;
+    if (!trainerId) {
+      toast.error("Update failed: Trainer ID is missing.");
+      return;
+    }
+
     try {
-      await trainersApi.update(editingTrainer.id, trainerData)
-      toast.success("อัปเดตข้อมูลครูมวยสำเร็จ")
-      closeEditDialog()
+      await trainersApi.update(trainerId, trainerData);
+      toast.success("บันทึกข้อมูลครูมวยสำเร็จ");
     } catch (error) {
-      console.error("Error updating trainer:", error)
-      toast.error("ไม่สามารถอัปเดตข้อมูลครูมวยได้", {
+      console.error("Error updating trainer:", error);
+      toast.error("ไม่สามารถบันทึกข้อมูลครูมวยได้", {
         description: error instanceof Error ? error.message : "Unknown error",
-      })
+      });
+      throw error;
     }
   }
 
@@ -324,34 +329,24 @@ export default function TrainersPage() {
                 <h1 className="text-3xl font-bold tracking-tight">จัดการครูมวยบนแพลตฟอร์ม</h1>
                 <p className="text-muted-foreground">คุณสามารถดู แก้ไข หรือเพิ่มครูมวยใหม่ รวมถึงจัดการรายละเอียดที่ใช้แสดงผลบนแพลตฟอร์ม</p>
               </div>
-              <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-                setIsAddDialogOpen(open)
-                if (open) {
-                  setEditingTrainer(null)
-                }
-              }}>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />สร้างครูมวยใหม่
+                  <Button className="flex items-center gap-2">
+                    <Plus size={18} />
+                    <span>เพิ่มครูมวย</span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col">
-                  <div className="p-6 pb-4 border-b flex-shrink-0">
-                    <DialogHeader>
-                      <DialogTitle>เพิ่มครูมวยใหม่</DialogTitle>
-                    </DialogHeader>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-6 pb-6">
-                    <TrainerFormMultiStep
-                      onSubmit={handleAddTrainer}
-                      onCancel={() => setIsAddDialogOpen(false)}
-                      onSavePartial={async () => {}}
-                      onComplete={() => {
-                        setIsAddDialogOpen(false)
-                        refreshData()
-                      }}
-                    />
-                  </div>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle>เพิ่มครูมวยใหม่</DialogTitle></DialogHeader>
+                  <TrainerFormMultiStep
+                    onSubmit={handleFinalUpdate}
+                    onCreate={handleAddTrainer}
+                    onCancel={() => setIsAddDialogOpen(false)}
+                    onComplete={() => {
+                      setIsAddDialogOpen(false)
+                      refreshData()
+                    }}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
@@ -512,22 +507,22 @@ export default function TrainersPage() {
                                 </Button>
                               </DialogTrigger>
                               <DialogContent 
-                                className="max-w-6xl w-[98vw] max-h-[98vh] p-0 flex flex-col"
+                                className="max-w-4xl max-h-[90vh] overflow-y-auto"
                                 onEscapeKeyDown={() => closeEditDialog()}
                                 onPointerDownOutside={() => closeEditDialog()}
                               >
                                 <div className="p-6 pb-4 border-b flex-shrink-0">
                                   <DialogHeader>
-                                    <DialogTitle>แก้ไขครูมวย</DialogTitle>
+                                    <DialogTitle>แก้ไขข้อมูลครูมวย</DialogTitle>
                                   </DialogHeader>
                                 </div>
                                 <div className="flex-1 overflow-y-auto px-6 pb-6">
                                   {editingTrainer && (
                                     <TrainerFormMultiStep
-                                      trainer={editingTrainer ?? undefined}
+                                      trainer={editingTrainer}
                                       onSubmit={handleFinalUpdate}
-                                      onCancel={closeEditDialog}
                                       onSavePartial={handlePartialUpdate}
+                                      onCancel={closeEditDialog}
                                       onComplete={closeEditDialog}
                                     />
                                   )}

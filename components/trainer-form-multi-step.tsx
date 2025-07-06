@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TrainerFormStep1 } from "@/components/trainer-form-step1"
 import { TrainerFormStep2 } from "@/components/trainer-form-step2"
 import type { Trainer } from "@/lib/types"
@@ -9,45 +9,78 @@ interface TrainerFormMultiStepProps {
   trainer?: Trainer
   onSubmit: (trainer: Partial<Trainer>) => Promise<void>
   onCancel: () => void
-  onSavePartial: (trainer: Partial<Trainer>) => Promise<void>
+  onSavePartial?: (trainer: Partial<Trainer>) => Promise<void>
   onComplete?: () => void
+  onCreate?: (trainer: Partial<Trainer>) => Promise<any>
 }
 
-export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartial, onComplete }: TrainerFormMultiStepProps) {
+export function TrainerFormMultiStep({ trainer: initialTrainer, onSubmit, onCancel, onSavePartial, onComplete, onCreate }: TrainerFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
+  const [isCreating, setIsCreating] = useState(false)
+  const [trainer, setTrainer] = useState<Trainer | undefined>(initialTrainer)
   
   const [step1Data, setStep1Data] = useState<Partial<Trainer>>(() => {
-    if (trainer) {
+    if (initialTrainer) {
       return {
-        first_name_th: trainer.first_name_th,
-        first_name_en: trainer.first_name_en,
-        last_name_th: trainer.last_name_th,
-        last_name_en: trainer.last_name_en,
-        phone: trainer.phone,
-        email: trainer.email,
-        bio_th: trainer.bio_th,
-        bio_en: trainer.bio_en,
-        line_id: trainer.line_id,
-        exp_year: trainer.exp_year,
+        first_name_th: initialTrainer.first_name_th,
+        first_name_en: initialTrainer.first_name_en,
+        last_name_th: initialTrainer.last_name_th,
+        last_name_en: initialTrainer.last_name_en,
+        phone: initialTrainer.phone,
+        email: initialTrainer.email,
+        bio_th: initialTrainer.bio_th,
+        bio_en: initialTrainer.bio_en,
+        line_id: initialTrainer.line_id,
+        exp_year: initialTrainer.exp_year,
       }
     }
     return {}
   })
 
+  useEffect(() => {
+    setTrainer(initialTrainer)
+  }, [initialTrainer])
+
   const handlePartialSave = async (data: Partial<Trainer>) => {
     if (!trainer || !onSavePartial) return
     
     try {
-      await onSavePartial(data)
+      await onSavePartial({ ...trainer, ...data })
       setStep1Data(prevData => ({ ...prevData, ...data }))
     } catch (error) {
       throw error
     }
   }
 
-  const handleStep1Next = (data: Partial<Trainer>) => {
+  const handleStep1Next = async (data: Partial<Trainer>) => {
     setStep1Data(data)
-    setCurrentStep(2)
+    if (!trainer?.id) {
+      if (!onCreate) {
+        console.error("onCreate prop is required for creating a new trainer")
+        return
+      }
+      setIsCreating(true)
+      try {
+        const newTrainer = await onCreate(data)
+        if (newTrainer?.id) {
+          setTrainer(newTrainer)
+        }
+        setCurrentStep(2)
+      } catch (error) {
+        console.error("Failed to create trainer from step 1", error)
+      } finally {
+        setIsCreating(false)
+      }
+    } else if (onSavePartial) {
+      try {
+        await onSavePartial({ ...trainer, ...data })
+        setCurrentStep(2)
+      } catch (error) {
+        console.error("Failed to save partial trainer data", error)
+      }
+    } else {
+      setCurrentStep(2)
+    }
   }
 
   const handleStep2Back = () => {
@@ -55,7 +88,7 @@ export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartia
   }
 
   const handleFinalSubmit = async (finalData: Partial<Trainer>) => {
-    await onSubmit(finalData)
+    await onSubmit({ ...trainer, ...finalData })
   }
 
   const handleStep1SaveSuccess = () => {
@@ -71,7 +104,7 @@ export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartia
       trainer={trainer} 
       onNext={handleStep1Next} 
       onCancel={onCancel} 
-      onSave={handlePartialSave}
+      onSave={handlePartialSave!}
     />
   }
 

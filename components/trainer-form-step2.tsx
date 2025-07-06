@@ -49,10 +49,10 @@ function transformBackendClassesToClasses(backendClasses: any[]): any[] {
 function transformClassesToBackend(classes: any[]): any[] {
   if (!classes || !Array.isArray(classes)) return []
   return classes.map(cls => ({
-    name_th: cls.name.th,
-    name_en: cls.name.en,
-    description_th: cls.description.th,
-    description_en: cls.description.en,
+    name_th: cls.name?.th,
+    name_en: cls.name?.en,
+    description_th: cls.description?.th,
+    description_en: cls.description?.en,
     duration_minutes: cls.duration,
     price: Math.round(cls.price * 100),
     max_students: cls.maxStudents,
