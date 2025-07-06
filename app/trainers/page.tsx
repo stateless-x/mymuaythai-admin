@@ -251,8 +251,11 @@ export default function TrainersPage() {
     if (!editingTrainer?.id) return
     try {
       const response = await trainersApi.update(editingTrainer.id, trainerData)
-      setEditingTrainer(response.data)
-      refreshData()
+      const updatedTrainer = response.data
+      setEditingTrainer(updatedTrainer)
+      setTrainers(prevTrainers =>
+        prevTrainers.map(t => (t.id === updatedTrainer.id ? { ...t, ...updatedTrainer } : t))
+      )
     } catch (error) {
       console.error("Error performing partial update:", error)
       toast.error("ไม่สามารถบันทึกข้อมูลชั่วคราวได้", {
@@ -526,7 +529,6 @@ export default function TrainersPage() {
                                       onCancel={closeEditDialog}
                                       onSavePartial={handlePartialUpdate}
                                       onComplete={closeEditDialog}
-                                      fetchTrainerData={refreshData}
                                     />
                                   )}
                                 </div>
