@@ -11,10 +11,9 @@ interface TrainerFormMultiStepProps {
   onCancel: () => void
   onSavePartial: (trainer: Partial<Trainer>) => Promise<void>
   onComplete?: () => void
-  fetchTrainerData?: () => void
 }
 
-export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartial, onComplete, fetchTrainerData }: TrainerFormMultiStepProps) {
+export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartial, onComplete }: TrainerFormMultiStepProps) {
   const [currentStep, setCurrentStep] = useState(1)
   
   const [step1Data, setStep1Data] = useState<Partial<Trainer>>(() => {
@@ -41,7 +40,6 @@ export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartia
     try {
       await onSavePartial(data)
       setStep1Data(prevData => ({ ...prevData, ...data }))
-      fetchTrainerData?.()
     } catch (error) {
       throw error
     }
@@ -58,7 +56,6 @@ export function TrainerFormMultiStep({ trainer, onSubmit, onCancel, onSavePartia
 
   const handleFinalSubmit = async (finalData: Partial<Trainer>) => {
     await onSubmit(finalData)
-    fetchTrainerData?.()
   }
 
   const handleStep1SaveSuccess = () => {
