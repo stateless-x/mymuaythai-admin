@@ -22,14 +22,14 @@ import {
 } from "@/lib/utils/form-helpers"
 
 interface GymFormStep1Props {
-  gym?: Gym
+  gym?: Partial<Gym>
   onNext: (data: Partial<Gym>) => void
   onCancel: () => void
   onSave: (data: Partial<Gym>) => Promise<void>
-  onSuccess: () => void
+  isSubmitting?: boolean
 }
 
-export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFormStep1Props) {
+export function GymFormStep1({ gym, onNext, onCancel, onSave, isSubmitting: isSubmittingProp }: GymFormStep1Props) {
   const [formData, setFormData] = useState({
     name_th: gym?.name_th,
     name_en: gym?.name_en,
@@ -121,8 +121,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
     return Object.keys(formErrors).length === 0
   }
 
-
-
   const handleNext = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault()
@@ -136,13 +134,8 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
     try {
       const cleanedData = cleanFormDataForAPI(formData)
       
-      // When in edit mode, save the data from step 1 before proceeding.
-      if (gym) {
-        await onSave(cleanedData)
-      }
-      
-      // Proceed to next step
-      onNext(cleanedData)
+      // onNext will handle either creation or just proceeding to the next step.
+      await onNext(cleanedData)
     } catch (error) {
       console.error("Error proceeding to next step:", error)
       const { toast } = await import('sonner')
@@ -172,8 +165,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว",
         duration: 1000,
       })
-      // Call onSuccess to indicate successful save
-      onSuccess()
+      // No need for onSuccess callback, parent handles state.
     } catch (error) {
       console.error("Error saving:", error)
       const { toast } = await import('sonner')
@@ -186,7 +178,8 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
   }
 
   // Check if we're in edit mode
-  const isEditMode = !!gym
+  const isEditMode = !!gym?.id
+  const isFormDisabled = isSubmitting || isSubmittingProp
 
   return (
     <form onSubmit={handleNext} noValidate autoComplete="off">
@@ -225,7 +218,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   value={formData.name_th || ""}
                   onChange={(e) => setFormData({ ...formData, name_th: e.target.value })}
                   placeholder="ชื่อยิมภาษาไทย"
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                   className={`h-9 ${errors.name_th ? "border-red-500" : ""}`}
                 />
@@ -240,7 +233,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   value={formData.name_en || ""}
                   onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
                   placeholder="Gym name in English"
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                   className={`h-9 ${errors.name_en ? "border-red-500" : ""}`}
                 />
@@ -259,7 +252,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   value={formData.phone || ""}
                   onChange={(e) => setFormData({ ...formData, phone: formatPhoneInput(e.target.value) })}
                   placeholder="089-123-4567"
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                   className={`h-9 ${errors.phone ? "border-red-500" : ""}`}
                 />
@@ -275,7 +268,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   value={formData.email || ""}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="contact@example.com"
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                   className={`h-9 ${errors.email ? "border-red-500" : ""}`}
                 />
@@ -293,7 +286,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                 value={formData.line_id || ""}
                 onChange={(e) => setFormData({ ...formData, line_id: e.target.value })}
                 placeholder="gymlineid or @gymlineid"
-                disabled={isSubmitting}
+                disabled={isFormDisabled}
                 autoComplete="off"
                 className="h-9"
               />
@@ -332,7 +325,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                       !formData.province_id && "text-muted-foreground",
                       errors.province_id && "border-red-500"
                     )}
-                    disabled={isSubmitting || isLoadingProvinces || !!provincesError}
+                    disabled={isFormDisabled || isLoadingProvinces || !!provincesError}
                   >
                     <span className="truncate">
                       {isLoadingProvinces
@@ -407,7 +400,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                     value={formData.description_th || ""}
                     onChange={(e) => setFormData({ ...formData, description_th: e.target.value })}
                     placeholder="อธิบายยิม บรรยากาศ และสิ่งที่ทำให้พิเศษ..."
-                    disabled={isSubmitting}
+                    disabled={isFormDisabled}
                     autoComplete="off"
                     rows={6}
                     className={`resize-none ${errors.description_th ? "border-red-500" : ""}`}
@@ -423,7 +416,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                     value={formData.description_en || ""}
                     onChange={(e) => setFormData({ ...formData, description_en: e.target.value })}
                     placeholder="Describe the gym, atmosphere, and what makes it special..."
-                    disabled={isSubmitting}
+                    disabled={isFormDisabled}
                     autoComplete="off"
                     rows={6}
                     className={`resize-none ${errors.description_en ? "border-red-500" : ""}`}
@@ -453,7 +446,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   onChange={(e) => setFormData({ ...formData, map_url: e.target.value })}
                   placeholder="https://maps.app.goo.gl/ZQnNR1DCcXvtkGyN9"
                   className={`h-9 ${errors.map_url ? "border-red-500" : ""}`}
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                 />
                 {formData.map_url && validateUrl(formData.map_url) && (
@@ -462,7 +455,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                     variant="outline"
                     size="sm"
                     onClick={() => window.open(formData.map_url, "_blank")}
-                    disabled={isSubmitting}
+                    disabled={isFormDisabled}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -483,7 +476,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                   onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
                   placeholder="https://youtu.be/dQw4w9WgXcQ?si=XEGNd4iD9vvYgJla"
                   className={`h-9 ${errors.youtube_url ? "border-red-500" : ""}`}
-                  disabled={isSubmitting}
+                  disabled={isFormDisabled}
                   autoComplete="off"
                 />
                 {formData.youtube_url && validateUrl(formData.youtube_url) && (
@@ -492,7 +485,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                     variant="outline"
                     size="sm"
                     onClick={() => window.open(formData.youtube_url, "_blank")}
-                    disabled={isSubmitting}
+                    disabled={isFormDisabled}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -522,7 +515,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                 id="status"
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                disabled={isSubmitting}
+                disabled={isFormDisabled}
               />
               <Label htmlFor="status" className="text-sm font-medium">
                 เปิดใช้งานยิม
@@ -533,7 +526,7 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
 
         {/* Form Actions */}
         <div className="flex justify-between pt-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isFormDisabled}>
             ยกเลิก
           </Button>
           <div className="flex gap-2">
@@ -543,13 +536,13 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, onSuccess }: GymFo
                 type="button" 
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={handleSave} 
-                disabled={isSubmitting}
+                disabled={isFormDisabled}
               >
                 {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
               </Button>
             )}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "กำลังดำเนินการ..." : "ถัดไป"}
+            <Button type="submit" disabled={isFormDisabled}>
+              {isSubmitting || isSubmittingProp ? "กำลังดำเนินการ..." : "ถัดไป"}
             </Button>
           </div>
         </div>

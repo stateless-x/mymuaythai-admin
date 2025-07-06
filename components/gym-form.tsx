@@ -5,22 +5,20 @@ import type { Gym } from "@/lib/types"
 
 interface GymFormProps {
   gym?: Gym
-  onSubmit?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
+  onSubmit: (gym: Partial<Gym>) => Promise<void>
+  onCreate?: (gym: Partial<Gym>) => Promise<Gym | undefined>
   onCancel: () => void
-  onSavePartial?: (gym: Omit<Gym, "id" | "joinedDate">) => Promise<void>
+  onSavePartial?: (gym: Partial<Gym>) => Promise<void>
   onComplete?: () => void
-  onSavePartialSuccess?: () => void
-  fetchGymData?: () => void
 }
 
-export function GymForm({ gym, onSubmit, onCancel, onSavePartial, onComplete, onSavePartialSuccess, fetchGymData }: GymFormProps) {
+export function GymForm({ gym, onSubmit, onCreate, onCancel, onSavePartial, onComplete }: GymFormProps) {
   return <GymFormMultiStep 
     gym={gym} 
     onSubmit={onSubmit} 
+    onCreate={onCreate}
     onCancel={onCancel} 
     onSavePartial={onSavePartial} 
     onComplete={onComplete} 
-    onSavePartialSuccess={onSavePartialSuccess} 
-    fetchGymData={fetchGymData}
   />
 }

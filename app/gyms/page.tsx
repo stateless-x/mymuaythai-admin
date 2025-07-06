@@ -251,6 +251,7 @@ export default function GymsPage() {
 
   const closeEditDialog = () => {
     setEditingGym(null)
+    fetchData()
   }
 
   const formatDate = (dateString: string | Date) => {
@@ -295,65 +296,74 @@ export default function GymsPage() {
     })
   }
 
-  const handleAddGym = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
+  const handleAddGym = async (gymData: Partial<Gym>): Promise<Gym | undefined> => {
     try {
-      console.log("DEBUG - handleAddGym received data:", gymData);
-      console.log("DEBUG - associatedTrainers in gymData:", gymData.associatedTrainers);
-      
-      const trimmedData = trimFormData(gymData);
-      const newGym = await gymsApi.create(trimmedData);
-      
-      console.log("DEBUG - API response from create:", newGym);
-      
-      // IMPORTANT: Clear all dialog states FIRST
-      setIsAddDialogOpen(false);
-      setEditingGym(null);
-      
-      // Conservative approach: Only update total count, no array manipulation
-      setPagination(prev => ({ ...prev, total: prev.total + 1 }))
+      const trimmedData = trimFormData(gymData)
+      const newGym = await gymsApi.create(trimmedData)
       fetchData();
-    } catch (err) {
-      console.error("DEBUG - Error in handleAddGym:", err);
-      toast.error("ไม่สามารถเพิ่มยิมได้");
-      // On error, refresh to get correct state
-      fetchData();
+      return newGym.data || newGym
+    } catch (error) {
+      console.error("Error creating gym:", error)
+      toast.error("ไม่สามารถสร้างยิมได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      })
+      throw error // Re-throw to be caught by the form
     }
-  };
+  }
 
-  const savePartialGymData = async (gymData: Omit<Gym, "id" | "joinedDate">) => {
-    if (editingGym) {
-      try {
-        const trimmedData = trimFormData(gymData);
-        const response = await gymsApi.update(editingGym.id, trimmedData)
-        
-        // Extract the actual gym data from the response
-        const updatedGym = response.data || response;
-        
-        // Update the gym in the list
-        const currentEditingId = editingGym.id
-        setGyms(prev => prev.map(gym => 
-          gym.id === currentEditingId ? updatedGym : gym
-        ))
-        
-        // Update the editingGym with the new data so the form stays populated
-        setEditingGym(updatedGym)
-        
-        return updatedGym
-      } catch (err) {
-        // On error, refresh to get correct state
-        fetchData();
-        throw err 
-      }
+  const handleUpdateGym = async (gymData: Partial<Gym>) => {
+    const gymId = gymData.id;
+    if (!gymId) {
+      toast.error("Update failed: Gym ID is missing.");
+      return;
+    }
+
+    try {
+      const trimmedData = trimFormData(gymData)
+      await gymsApi.update(gymId, trimmedData)
+      toast.success("บันทึกข้อมูลยิมสำเร็จ");
+    } catch (error) {
+      console.error("Error updating gym:", error);
+      toast.error("ไม่สามารถบันทึกข้อมูลยิมได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error; // Re-throw to be caught by the form if needed
+    }
+  }
+
+  const savePartialGymData = async (gymData: Partial<Gym>) => {
+    if (!editingGym?.id) {
+      throw new Error("Cannot save partial data without a gym ID.")
+    }
+
+    try {
+      const trimmedData = trimFormData(gymData)
+      const response = await gymsApi.update(editingGym.id, trimmedData)
+      const updatedGym = response.data
+      
+      setEditingGym(current => (current ? { ...current, ...updatedGym } : null))
+
+      setGyms(prevGyms =>
+        prevGyms.map(g => (g.id === updatedGym.id ? { ...g, ...updatedGym } : g))
+      )
+    } catch (error) {
+      console.error("Error performing partial update:", error)
+      toast.error("ไม่สามารถบันทึกข้อมูลชั่วคราวได้", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      })
+      throw error
     }
   }
 
   const handleEditComplete = () => {
-    setEditingGym(null)
+    setIsAddDialogOpen(false);
+    setEditingGym(null);
+    fetchData(); // Refetch data to show updated gym
   }
 
   const handlePartialSaveSuccess = () => {
-    // For step 1 save success, don't close dialog, just show success message
-    // Dialog should remain open for user to continue editing or manually close
+    // This function can be used to refetch data or update state after a partial save.
+    fetchData();
   }
 
   const handleDeleteGym = async (gymId: string) => {
@@ -446,11 +456,10 @@ export default function GymsPage() {
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
                     <GymForm 
-                      onSubmit={handleAddGym} 
-                      onCancel={() => {
-                        setIsAddDialogOpen(false)
-                        setEditingGym(null)
-                      }}
+                      onCancel={() => setIsAddDialogOpen(false)}
+                      onCreate={handleAddGym}
+                      onSubmit={handleUpdateGym}
+                      onComplete={handleEditComplete}
                     />
                   </div>
                 </DialogContent>
@@ -615,15 +624,15 @@ export default function GymsPage() {
                                 </DialogHeader>
                               </div>
                               <div className="flex-1 overflow-y-auto px-6 pb-6">
-                                <GymForm 
-                                  key={`form-${gym.id}`}
-                                  gym={editingGym || undefined} 
-                                  onCancel={() => closeEditDialog()}
-                                  onSavePartial={savePartialGymData}
-                                  onComplete={handleEditComplete}
-                                  onSavePartialSuccess={handlePartialSaveSuccess}
-                                  fetchGymData={fetchData}
-                                />
+                                {editingGym && (
+                                  <GymForm
+                                    gym={editingGym}
+                                    onCancel={closeEditDialog}
+                                    onSavePartial={savePartialGymData}
+                                    onSubmit={handleUpdateGym}
+                                    onComplete={closeEditDialog}
+                                  />
+                                )}
                               </div>
                             </DialogContent>
                           </Dialog>

@@ -8,86 +8,17 @@ import { CollapsibleTagSelector } from "@/components/collapsible-tag-selector";
 import { TrainerSelector, TrainerSelectorRef } from "@/components/trainer-selector";
 import { batchUpdateTrainerGymAssociations } from "@/lib/api";
 import { trimFormData } from "@/lib/utils/form-helpers";
-import { tagsApi } from "@/lib/api";
 import type { Gym, Trainer, Tag } from "@/lib/types";
 
 interface GymFormStep2Props {
   gym?: Gym;
   initialData: Partial<Gym>;
-  onSubmit: (data: Omit<Gym, "id" | "joinedDate">) => void;
+  onSubmit: (data: Partial<Gym>) => void;
   onBack: () => void;
   onSave: (data: Partial<Gym>) => Promise<void>;
   onCancel: () => void;
   onSuccess?: () => void;
 }
-
-// Helper function for authenticated requests
-const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  
-  // Get auth token if available
-  const getAuthToken = (): string | null => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("auth-token");
-    }
-    return null;
-  };
-  
-  const token = getAuthToken();
-  
-  const config: RequestInit = {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  
-  if (!response.ok) {
-    let errorDetails;
-    try {
-      errorDetails = await response.json();
-    } catch {
-      errorDetails = await response.text();
-    }
-    
-    throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`);
-  }
-  
-  return response.json();
-};
-
-// Helper function to convert tag slugs to tag objects with IDs
-const convertTagSlugsToTagObjects = async (tagSlugs: string[]): Promise<Tag[]> => {
-  if (!tagSlugs || tagSlugs.length === 0) {
-    return [];
-  }
-  
-  try {
-    // Get tag objects from slugs
-    const tagPromises = tagSlugs.map(async (slug) => {
-      try {
-        // Search for tags and find the one with matching slug
-        const response = await tagsApi.getAll({ searchTerm: slug, pageSize: 10 });
-        const tags = response.data?.items || response.data || response;
-        const foundTag = tags.find((tag: any) => tag.slug === slug);
-        return foundTag || null;
-      } catch (err) {
-        console.error(`Failed to get tag with slug: ${slug}`, err);
-        return null;
-      }
-    });
-    
-    const tags = await Promise.all(tagPromises);
-    return tags.filter((tag): tag is Tag => tag !== null);
-  } catch (error) {
-    console.error('Error converting tag slugs to objects:', error);
-    return [];
-  }
-};
 
 export function GymFormStep2({
   gym,
@@ -153,88 +84,57 @@ export function GymFormStep2({
 
     // Only make API calls if there are changes
     if (addTrainers.length > 0 || removeTrainers.length > 0) {
-      const result = await batchUpdateTrainerGymAssociations(addTrainers, removeTrainers, gymId);
-      
-      if (!result.success) {
-        const { toast } = await import("sonner");
-        toast.error("ไม่สามารถอัปเดตครูมวยได้", {
-          description: result.error || "กรุณาลองอีกครั้ง"
-        });
-        throw new Error(result.error || "Failed to update trainers");
-      } else if (result.errors && result.errors.length > 0) {
-        const { toast } = await import("sonner");
-        toast.warning("อัปเดตครูมวยบางส่วนไม่สำเร็จ", {
-          description: `${result.errors.length} การอัปเดตล้มเหลว`
-        });
+      try {
+        const result = await batchUpdateTrainerGymAssociations(addTrainers, removeTrainers, gymId);
+        
+        if (!result.success) {
+          const { toast } = await import("sonner");
+          toast.error("ไม่สามารถอัปเดตครูมวยได้", {
+            description: result.error || "กรุณาลองอีกครั้ง"
+          });
+          throw new Error(result.error || "Failed to update trainers");
+        } else if (result.errors && result.errors.length > 0) {
+          const { toast } = await import("sonner");
+          toast.warning("อัปเดตครูมวยบางส่วนไม่สำเร็จ", {
+            description: `${result.errors.length} การอัปเดตล้มเหลว`
+          });
+        }
+        
+        // After successful API update, use the handleUpdateWithoutRefetch method
+        trainerSelectorRef.current?.handleUpdateWithoutRefetch();
+      } catch (error) {
+        console.error("Error updating trainers:", error);
+        // Let the caller handle the toast for the thrown error
+        throw error;
       }
-      
-      // After successful API update, use the handleUpdateWithoutRefetch method
-      trainerSelectorRef.current?.handleUpdateWithoutRefetch();
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const completeTrainerList = trainerSelectorRef.current?.getCompleteTrainerList() || [];
-      const completeTrainerIds = completeTrainerList.map(t => t.id);
-
-      console.log("DEBUG - Trainer data in handleSubmit:");
-      console.log("- completeTrainerList:", completeTrainerList);
-      console.log("- completeTrainerIds:", completeTrainerIds);
-
-      // Convert tag slugs to tag objects for backend submission
-      const tagObjects = await convertTagSlugsToTagObjects(formData.tags || []);
+      if (gym?.id) {
+        await handleTrainerUpdates(gym.id);
+      }
       
-      console.log("DEBUG - Tag conversion:");
-      console.log("- formData.tags (slugs):", formData.tags);
-      console.log("- tagObjects:", tagObjects);
-
-      // Create form data with proper backend format
-      const backendFormData = {
-        ...initialData,
-        ...formData,
-        tags: tagObjects, // Use tag objects for backend
-        associatedTrainers: completeTrainerIds,
+      // We no longer convert tags here. The parent component does it.
+      // We pass the raw form data (with tag slugs) up to the parent.
+      const step2Data = {
+        images: formData.images,
+        tags: formData.tags, 
       };
 
-      const completeFormData = trimFormData(backendFormData);
+      // Pass data up to the multi-step form to handle the final submission
+      await onSubmit(step2Data);
 
-      console.log("DEBUG - Complete form data being submitted:");
-      console.log("- initialData:", initialData);
-      console.log("- formData:", formData);
-      console.log("- completeFormData:", completeFormData);
-      console.log("- gym (edit mode check):", gym);
-
-      if (gym) {
-        // Update logic - for edit mode
-        await onSave(completeFormData as any); // Cast to any for backend submission with tag objects
-        if (gym.id) {
-          await handleTrainerUpdates(gym.id);
-        }
-        const { toast } = await import("sonner");
-        toast.success("บันทึกข้อมูลสำเร็จ", {
-          description: "ข้อมูลยิมและครูมวยได้รับการบันทึกแล้ว",
-        });
-        setOriginalTrainers(completeTrainerList);
-        
-        // For edit mode: close the dialog and refresh data
-        if (onSuccess) {
-          onSuccess();
-        }
-      } else {
-        // Create logic - for create mode
-        console.log("DEBUG - Entering create mode, calling onSubmit with:", completeFormData);
-        if (onSubmit) {
-          await onSubmit(completeFormData as any); // Cast to any for backend submission with tag objects
-        }
-        // For create mode, onSubmit should handle closing the dialog
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
       console.error("Error submitting form:", error);
       const { toast } = await import("sonner");
       toast.error("ไม่สามารถบันทึกข้อมูลได้", {
-        description: "กรุณาลองอีกครั้ง",
+        description: error instanceof Error ? error.message : "กรุณาลองอีกครั้ง",
       });
     } finally {
       setIsSubmitting(false);
@@ -242,7 +142,7 @@ export function GymFormStep2({
   };
 
   // Check if we're in edit mode
-  const isEditMode = !!gym;
+  const isEditMode = !!gym?.id;
 
   return (
     <div className="space-y-6">
@@ -321,7 +221,7 @@ export function GymFormStep2({
             onClick={handleSubmit}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "กำลังบันทึก..." : gym ? "บันทึก" : "สร้างยิม"}
+            {isSubmitting ? "กำลังบันทึก..." : "บันทึกยิม"}
           </Button>
         </div>
       </div>
