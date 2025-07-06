@@ -531,24 +531,24 @@ export default function TrainersPage() {
                             </Dialog>
 
                             <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบข้อมูลครูมวยออกจากเซิร์ฟเวอร์ของเราอย่างถาวร
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteTrainer(trainer.id)}>ลบ</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="text-red-500 font-semibold text-lg mb-2">คุณแน่ใจหรือไม่?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-red-500 font-normal text-md">
+                                การดำเนินการนี้ไม่สามารถยกเลิกได้ การดำเนินการนี้จะลบ<span className="font-bold text-lg underline">เทรนเนอร์ </span>ที่เกี่ยวข้อง<span className="font-bold text-lg underline">อย่างถาวร</span>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                                <AlertDialogAction className="bg-red-500 hover:bg-red-600" onClick={() => handleDeleteTrainer(trainer.id)}>ลบ</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
