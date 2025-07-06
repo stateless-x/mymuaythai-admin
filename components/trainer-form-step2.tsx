@@ -94,7 +94,7 @@ export function TrainerFormStep2({ trainer, initialData, onSubmit, onBack, onCan
     is_freelance: trainer?.is_freelance || false,
     is_active: trainer?.is_active !== undefined ? trainer.is_active : true,
     tags: getTagSlugs(trainer?.tags || []),
-    images: (trainer?.images || []) as (string | { id?: string; image_url: string })[],
+    images: trainer?.images || [],
     classes: trainer?.classes ? transformBackendClassesToClasses(trainer.classes) : [],
   })
   
@@ -116,16 +116,15 @@ export function TrainerFormStep2({ trainer, initialData, onSubmit, onBack, onCan
   }, [])
 
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
       ...initialData,
       province_id: trainer?.province_id || trainer?.province?.id || null,
       is_freelance: trainer?.is_freelance || false,
       is_active: trainer?.is_active !== undefined ? trainer.is_active : true,
       tags: getTagSlugs(trainer?.tags || []),
-      images: (trainer?.images || []) as (string | { id?: string; image_url: string })[],
+      images: trainer?.images || [],
       classes: trainer?.classes ? transformBackendClassesToClasses(trainer.classes) : [],
-    }))
+    })
   }, [trainer, initialData])
 
   const validateForm = () => {
