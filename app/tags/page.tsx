@@ -269,7 +269,9 @@ export default function TagsPage() {
       if (editingTag) {
         const response = await tagsApi.update(editingTag.id, formData)
         const updatedTag = response.data
-        setTags(tags.map((tag) => (tag.id === editingTag.id ? { ...updatedTag, gymCount: tag.gymCount, trainerCount: tag.trainerCount } : tag)))
+        if (updatedTag) {
+          setTags(tags.map((tag) => (tag.id === editingTag.id ? { ...tag, ...updatedTag } : tag)))
+        }
         setEditingTag(null)
         toast.success("แก้ไขแท็กสำเร็จ")
       } else {

@@ -28,26 +28,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem("admin-user")
-    const authToken = localStorage.getItem("auth-token")
-    
-    if (savedUser && authToken) {
-      setUser(JSON.parse(savedUser))
-      setToken(authToken)
+    try {
+      // Check for existing session
+      const savedUser = localStorage.getItem("admin-user")
+      const authToken = localStorage.getItem("auth-token")
+
+      if (savedUser && authToken) {
+        setUser(JSON.parse(savedUser))
+        setToken(authToken)
+      }
+    } catch (error) {
+      console.error("Failed to parse user data from localStorage", error)
+      localStorage.removeItem("admin-user")
+      localStorage.removeItem("auth-token")
+      localStorage.removeItem("refresh-token")
+      setUser(null)
+      setToken(null)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await adminUsersApi.login({ email, password })
       
-      if (response.success && response.data) {
+      if (response.success && response.data?.user) {
         const userData = {
           id: response.data.user.id,
           email: response.data.user.email,
-          name: response.data.user.email, // Use email as name since we don't have a name field
+          name: response.data.user.email,
           role: response.data.user.role,
         }
         

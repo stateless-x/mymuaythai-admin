@@ -465,13 +465,14 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setIsLoading(true)
     try {
-      const response = await adminUsersApi.getAll()
-      setUsers(response.data || [])
-      
-      // Get user stats
-      const statsResponse = await adminUsersApi.getUserStats()
-      setAdminCount(statsResponse.data?.adminCount || 0)
-      setTotalCount(statsResponse.data?.totalCount || 0)
+      const [usersResponse, statsResponse] = await Promise.all([
+        adminUsersApi.getAll(),
+        adminUsersApi.getUserStats()
+      ]);
+
+      setUsers(usersResponse.data || []);
+      setAdminCount(statsResponse.data?.adminCount || 0);
+      setTotalCount(statsResponse.data?.totalCount || 0);
       
       setError(null)
     } catch (err) {

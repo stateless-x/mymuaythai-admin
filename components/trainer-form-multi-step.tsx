@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { TrainerFormStep1 } from "@/components/trainer-form-step1"
 import { TrainerFormStep2 } from "@/components/trainer-form-step2"
 import type { Trainer } from "@/lib/types"
@@ -64,10 +65,14 @@ export function TrainerFormMultiStep({ trainer: initialTrainer, onSubmit, onCanc
         const newTrainer = await onCreate(data)
         if (newTrainer?.id) {
           setTrainer(newTrainer)
+          setCurrentStep(2)
+        } else {
+          toast.error("ไม่สามารถสร้างครูมวยได้", {
+            description: "ไม่ได้รับข้อมูลครูมวยที่สร้างขึ้นจากเซิร์ฟเวอร์",
+          })
         }
-        setCurrentStep(2)
       } catch (error) {
-        console.error("Failed to create trainer from step 1", error)
+        throw error
       } finally {
         setIsCreating(false)
       }

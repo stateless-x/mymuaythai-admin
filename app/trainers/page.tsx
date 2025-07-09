@@ -257,10 +257,12 @@ export default function TrainersPage() {
     try {
       const response = await trainersApi.update(editingTrainer.id, trainerData)
       const updatedTrainer = response.data
-      setEditingTrainer(updatedTrainer)
-      setTrainers(prevTrainers =>
-        prevTrainers.map(t => (t.id === updatedTrainer.id ? { ...t, ...updatedTrainer } : t))
-      )
+      if (updatedTrainer) {
+        setEditingTrainer(current => (current ? { ...current, ...updatedTrainer } : updatedTrainer))
+        setTrainers(prevTrainers =>
+          prevTrainers.map(t => (t.id === updatedTrainer.id ? { ...t, ...updatedTrainer } : t))
+        )
+      }
     } catch (error) {
       console.error("Error performing partial update:", error)
       toast.error("ไม่สามารถบันทึกข้อมูลชั่วคราวได้", {

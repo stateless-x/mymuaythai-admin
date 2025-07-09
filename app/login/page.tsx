@@ -36,9 +36,13 @@ export default function Login() {
     setSuccess('')
 
     try {
-      await login(email, password)
-      setSuccess('เข้าสู่ระบบสำเร็จ กำลังเปลี่ยนเส้นทาง...')
-      setTimeout(() => router.push('/dashboard'), 1500)
+      const loggedIn = await login(email, password)
+      if (loggedIn) {
+        setSuccess('เข้าสู่ระบบสำเร็จ')
+        setTimeout(() => router.push('/dashboard'), 1500)
+      } else {
+        setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
+      }
     } catch (error) {
       // Only log in development
       if (process.env.NODE_ENV === 'development') {

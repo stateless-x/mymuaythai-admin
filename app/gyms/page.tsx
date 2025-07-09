@@ -276,12 +276,16 @@ export default function GymsPage() {
       const trimmedData = trimFormData(gymData)
       const response = await gymsApi.update(editingGym.id, trimmedData)
       const updatedGym = response.data
-      
-      setEditingGym(current => (current ? { ...current, ...updatedGym } : null))
 
-      setGyms(prevGyms =>
-        prevGyms.map(g => (g.id === updatedGym.id ? { ...g, ...updatedGym } : g))
-      )
+      if (updatedGym) {
+        setEditingGym(current => (current ? { ...current, ...updatedGym } : null))
+
+        setGyms(prevGyms =>
+          prevGyms.map(g => (g.id === updatedGym.id ? { ...g, ...updatedGym } : g))
+        )
+      } else {
+        console.warn("Partial update response did not contain gym data. A refetch may be required to see changes.");
+      }
     } catch (error) {
       console.error("Error performing partial update:", error)
       toast.error("ไม่สามารถบันทึกข้อมูลชั่วคราวได้", {
