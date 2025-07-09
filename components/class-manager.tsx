@@ -400,22 +400,18 @@ function EditForm({ formData, setFormData, errors, onPriceChange, onDurationChan
 }
 
 export function ClassManager({ classes, onClassesChange, disabled = false }: ClassManagerProps) {
-  console.log("classes", classes);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingClass, setEditingClass] = useState<ClassData | null>(null)
   
-  // Separate form data for add and edit operations
   const [addFormData, setAddFormData] = useState<ClassFormData>(defaultFormData)
   const [editFormData, setEditFormData] = useState<ClassFormData>(defaultFormData)
   
   const [addErrors, setAddErrors] = useState<Record<string, string>>({})
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
-  // Check if maximum classes limit is reached
   const isMaxClassesReached = classes.length >= MAX_CLASSES_LIMIT
 
-  // Handle add button click with limit check
   const handleAddButtonClick = useCallback(() => {
     if (isMaxClassesReached) {
       toast.error(`ไม่สามารถเพิ่มคลาสได้อีก จำนวนคลาสสูงสุดคือ ${MAX_CLASSES_LIMIT} คลาส`)
@@ -617,7 +613,6 @@ export function ClassManager({ classes, onClassesChange, disabled = false }: Cla
   }, [])
 
   const getClassTypeDisplay = useCallback((isPrivate: boolean | undefined) => {
-    console.log("isPrivate", isPrivate)
     return (isPrivate ? "เรียนส่วนตัว" : "เรียนแบบกลุ่ม");
   }, [])
 

@@ -39,16 +39,13 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5, disabled = 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canAddMore = images.length + uploadingImages.length < maxImages
-
   const handleFileSelect = (files: FileList | null) => {
     if (!files || !canAddMore) return
 
     const validFiles = Array.from(files).filter((file) => {
-      // Check file type
       if (!file.type.startsWith("image/")) {
         return false
       }
-      // Check file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         return false
       }

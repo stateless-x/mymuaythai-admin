@@ -29,7 +29,6 @@ interface TrainerFormStep2Props {
 }
 
 function transformBackendClassesToClasses(backendClasses: any[]): any[] {
-    console.log("backendClasses", backendClasses);
   if (!backendClasses || !Array.isArray(backendClasses)) return []
   return backendClasses
     .map(cls => ({

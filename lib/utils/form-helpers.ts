@@ -1,27 +1,8 @@
-/**
- * Form Helper Utilities
- * Reusable validation and formatting functions for forms across the application
- */
-
-// ========================
-// VALIDATION FUNCTIONS
-// ========================
-
-/**
- * Validates email format
- * @param email - Email string to validate
- * @returns boolean - true if valid or empty, false if invalid
- */
 export const validateEmail = (email: string): boolean => {
   if (!email) return true
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-/**
- * Validates URL format
- * @param url - URL string to validate
- * @returns boolean - true if valid or empty, false if invalid
- */
 export const validateUrl = (url: string): boolean => {
   if (!url) return true
   try {
@@ -32,42 +13,19 @@ export const validateUrl = (url: string): boolean => {
   }
 }
 
-/**
- * Validates required field (not empty after trimming)
- * @param value - String value to validate
- * @returns boolean - true if has content, false if empty
- */
 export const validateRequired = (value: string | undefined | null): boolean => {
   return !!(value && value.trim())
 }
 
-/**
- * Validates Thai phone number format (9 or 10 digits)
- * @param phone - Phone number string (can contain dashes)
- * @returns boolean - true if valid length, false otherwise
- */
 export const validatePhone = (phone: string): boolean => {
   if (!phone) return false
   const digits = phone.replace(/\D/g, '')
   return digits.length === 9 || digits.length === 10
 }
 
-// ========================
-// FORMATTING FUNCTIONS
-// ========================
-
-/**
- * Formats phone number with dashes as user types
- * @param value - Input value from phone field
- * @returns string - Formatted phone number with dashes
- */
 export const formatPhoneInput = (value: string): string => {
-  // Remove all non-digit characters
   const digits = value.replace(/\D/g, '')
-  
-  // Limit to 10 digits
   const limitedDigits = digits.slice(0, 10)
-  
   if (limitedDigits.length <= 2) {
     return limitedDigits
   } else if (limitedDigits.length <= 5) {
@@ -75,68 +33,37 @@ export const formatPhoneInput = (value: string): string => {
   } else if (limitedDigits.length <= 8) {
     return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
   } else {
-    // For 9+ digits, use different format
     if (limitedDigits.length === 9) {
       return `${limitedDigits.slice(0, 2)}-${limitedDigits.slice(2, 5)}-${limitedDigits.slice(5)}`
     } else {
-      // For 10 digits
       return `${limitedDigits.slice(0, 3)}-${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`
     }
   }
 }
 
-/**
- * Formats phone number for display in tables/lists
- * @param phone - Raw phone number string
- * @returns string - Formatted phone number or fallback text
- */
 export const formatPhoneDisplay = (phone: string | undefined): string => {
   if (!phone) return "ไม่ได้ระบุ"
   
-  // Remove any non-digit characters
   const digits = phone.replace(/\D/g, '')
   
   if (digits.length === 10) {
-    // Format as XXX-XXX-XXXX (e.g., 084-534-4560)
     return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
   } else if (digits.length === 9) {
-    // Format as XX-XXX-XXXX (e.g., 02-431-2099)
     return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`
   } else {
-    // Return original if not 9 or 10 digits
     return phone
   }
 }
 
-/**
- * Cleans phone number for API submission (removes all non-digits)
- * @param phone - Phone number string with potential dashes
- * @returns string - Clean digits-only phone number
- */
 export const cleanPhoneForAPI = (phone: string): string => {
   return phone.replace(/\D/g, '')
 }
 
-/**
- * Truncates long IDs for display
- * @param id - ID string to truncate
- * @returns string - Truncated ID or original if short
- */
 export const truncateId = (id: string | undefined): string => {
   if (!id || id.length <= 6) return id || ""
   return `${id.slice(0, 4)}...${id.slice(-2)}`
 }
 
-// ========================
-// FORM VALIDATION HELPERS
-// ========================
-
-/**
- * Creates error messages for form validation
- * @param fieldName - Name of the field for error message
- * @param validationType - Type of validation that failed
- * @returns string - Thai error message
- */
 export const getValidationMessage = (fieldName: string, validationType: 'required' | 'email' | 'url' | 'phone'): string => {
   const messages = {
     required: {
@@ -167,39 +94,29 @@ export const getValidationMessage = (fieldName: string, validationType: 'require
   return messages[validationType]
 }
 
-/**
- * Validates form data and returns errors object
- * @param formData - Form data object to validate
- * @param requiredFields - Array of required field names
- * @returns Record<string, string> - Object with field names as keys and error messages as values
- */
+
 export const validateFormData = (
   formData: Record<string, any>, 
   requiredFields: string[] = []
 ): Record<string, string> => {
   const errors: Record<string, string> = {}
 
-  // Check required fields
   requiredFields.forEach(field => {
     if (field === 'province_id') {
-      // Special validation for province_id (number field)
       if (!formData[field] || !Number.isInteger(formData[field])) {
         errors[field] = getValidationMessage(field, 'required')
       }
     } else {
-      // Regular string field validation
       if (!validateRequired(formData[field])) {
         errors[field] = getValidationMessage(field, 'required')
       }
     }
   })
 
-  // Validate email if present
   if (formData.email && !validateEmail(formData.email)) {
     errors.email = getValidationMessage('email', 'email')
   }
 
-  // Validate URLs if present
   if (formData.map_url && !validateUrl(formData.map_url)) {
     errors.map_url = 'กรุณาใส่ URL Google Maps ที่ถูกต้อง'
   }
@@ -208,7 +125,6 @@ export const validateFormData = (
     errors.youtube_url = 'กรุณาใส่ URL YouTube ที่ถูกต้อง'
   }
 
-  // Validate phone if present
   if (formData.phone && !validatePhone(formData.phone)) {
     errors.phone = getValidationMessage('phone', 'phone')
   }
@@ -216,38 +132,24 @@ export const validateFormData = (
   return errors
 }
 
-// ========================
-// DATA CLEANING FUNCTIONS
-// ========================
-
-/**
- * Recursively trims all string values in form data to remove leading and trailing whitespace
- * @param data - Form data object that may contain nested objects and arrays
- * @returns any - Same structure with all string values trimmed
- */
 export const trimFormData = <T extends Record<string, any>>(data: T): T => {
   if (data === null || data === undefined) {
     return data
   }
 
-  // Handle arrays
   if (Array.isArray(data)) {
     return data.map(item => trimFormData(item)) as unknown as T
   }
 
-  // Handle objects
   if (typeof data === 'object' && data !== null) {
     const trimmedData = {} as T
     
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === 'string') {
-        // Trim string values
         trimmedData[key as keyof T] = value.trim() as T[keyof T]
       } else if (typeof value === 'object' && value !== null) {
-        // Recursively trim nested objects and arrays
         trimmedData[key as keyof T] = trimFormData(value) as T[keyof T]
       } else {
-        // Keep non-string values as is (numbers, booleans, null, etc.)
         trimmedData[key as keyof T] = value
       }
     }
@@ -255,38 +157,28 @@ export const trimFormData = <T extends Record<string, any>>(data: T): T => {
     return trimmedData
   }
 
-  // Return primitive values as is
   return data
 }
 
-/**
- * Trims and cleans form data for API submission
- * Combines trimming with other cleanup operations (empty strings to undefined, phone cleaning)
- * @param data - Form data object to clean
- * @returns Cleaned form data ready for API submission
- */
 export const cleanFormDataForAPI = <T extends Record<string, any>>(data: T): T => {
-  // First trim all string values
   const trimmedData = trimFormData(data)
-  
-  // Then apply additional cleaning
   const cleanedData = { ...trimmedData }
-  
-  // Convert empty strings to undefined for optional fields
   Object.keys(cleanedData).forEach(key => {
     const value = cleanedData[key]
     if (typeof value === 'string' && value === '') {
-      // Only convert to undefined for specific optional fields
       if (['email', 'map_url', 'youtube_url', 'line_id', 'bio_th', 'bio_en'].includes(key)) {
         cleanedData[key as keyof T] = undefined as T[keyof T]
       }
     }
   })
   
-  // Clean phone number if present
   if ('phone' in cleanedData && cleanedData.phone && typeof cleanedData.phone === 'string') {
     (cleanedData as any).phone = cleanPhoneForAPI(cleanedData.phone)
   }
-  
   return cleanedData
 } 
+
+export const formatNumberInput = (value: string): Number => {
+  const digits = value.replace(/\D/g, '')
+  return Number(digits)
+}

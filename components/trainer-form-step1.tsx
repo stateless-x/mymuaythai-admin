@@ -12,7 +12,8 @@ import {
   validateFormData, 
   formatPhoneInput, 
   cleanFormDataForAPI,
-  validateEmail 
+  validateEmail, 
+  formatNumberInput
 } from "@/lib/utils/form-helpers"
 
 interface TrainerFormStep1Props {
@@ -186,8 +187,8 @@ export function TrainerFormStep1({ trainer, onNext, onCancel, onSave }: TrainerF
               <Input id="lineId" value={formData.line_id} onChange={(e) => setFormData({ ...formData, line_id: e.target.value })} placeholder="@lineid or lineid" disabled={isSubmitting} className="h-9" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="experience" className="text-sm">ปีของประสบการณ์ *</Label>
-              <Input id="experience" type="number" value={formData.exp_year} onChange={(e) => setFormData({ ...formData, exp_year: Number(e.target.value) })} placeholder="0-99" disabled={isSubmitting} className={`h-9 ${errors.exp_year ? "border-red-500" : ""}`} />
+              <Label htmlFor="experience" className="text-sm">ประสบการณ์ (ปี) *</Label>
+              <Input id="experience" type="text" value={formData.exp_year} onChange={(e) => setFormData({ ...formData, exp_year: formatNumberInput(e.target.value) })} placeholder="0-99" disabled={isSubmitting} className={`h-9 ${errors.exp_year ? "border-red-500" : ""}`} />
               {errors.exp_year && <p className="text-sm text-red-500 mt-1">{errors.exp_year}</p>}
             </div>
           </div>

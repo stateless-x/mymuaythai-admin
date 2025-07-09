@@ -173,11 +173,9 @@ export default function GymsPage() {
   useEffect(() => {
     if(!isFormDialogOpen) {
       fetchData()
-      console.log("isFormDialogOpen", isFormDialogOpen)
     }
   }, [isFormDialogOpen])
 
-  // Reset to page 1 when search term or filters change
   useEffect(() => {
     if (pagination.page !== 1) {
       setPagination(prev => ({ ...prev, page: 1 }))
