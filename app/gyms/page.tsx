@@ -20,13 +20,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -43,10 +36,7 @@ import { Switch } from "@/components/ui/switch"
 
 function PaginationControls({ page, total, pageSize, onPageChange }: { page: number, total: number, pageSize: number, onPageChange: (page: number) => void }) {
   const totalPages = Math.ceil(total / pageSize)
-
-  // Always show pagination if there are more than pageSize items, regardless of what backend says
   const shouldShowPagination = total > pageSize || totalPages > 1
-
   if (!shouldShowPagination) {
     return null
   }
@@ -101,7 +91,7 @@ export default function GymsPage() {
   const [includeInactive, setIncludeInactive] = useState(true)
   const [sortField, setSortField] = useState<"created_at" | "updated_at">()
   const [sortBy, setSortBy] = useState<"desc" | "asc">()
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false)
   const [editingGym, setEditingGym] = useState<Gym | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
@@ -117,11 +107,12 @@ export default function GymsPage() {
     setSortField("updated_at");
     setSortBy("desc");
   }, []);
+
   const fetchData = async () => {
     if (!sortField || !sortBy) {
       return;
     }
-    // Show search loading only if we're searching, not on initial load
+
     if (debouncedSearchTerm) {
       setIsSearching(true)
     } else {
@@ -176,66 +167,15 @@ export default function GymsPage() {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!sortField || !sortBy) {
-        return;
-      }
-      // Show search loading only if we're searching, not on initial load
-      if (debouncedSearchTerm) {
-        setIsSearching(true)
-      } else {
-        setIsLoading(true)
-      }
-      
-      try {
-        const params = {
-          page: pagination.page,
-          pageSize: pagination.pageSize,
-          searchTerm: debouncedSearchTerm || undefined,
-          includeInactive: includeInactive,
-          sortField: sortField,
-          sortBy: sortBy,
-        }
-        
-        const response = await gymsApi.getAll(params);
-        
-        // Remove client-side filtering - let backend handle everything
-        const gymsData = response.data || [];
-        setGyms(gymsData);
-        
-        // Use the pagination from response
-        const totalFromResponse = response.pagination?.total || 0;
-        const pageSizeFromResponse = response.pagination?.pageSize || pagination.pageSize;
-        const totalPages = Math.ceil(totalFromResponse / pageSizeFromResponse);
-        
-        // If current page exceeds available pages, go to the last available page
-        const validPage = pagination.page > totalPages ? Math.max(1, totalPages) : pagination.page;
-        
-        setPagination(prev => ({ 
-          ...prev, 
-          page: validPage,
-          total: totalFromResponse,
-          pageSize: pageSizeFromResponse
-        }));
-        
-        // If we had to adjust the page, refetch with the correct page
-        if (validPage !== pagination.page && totalPages > 0) {
-          return;
-        }
-        
-        setError(null)
-      } catch (err) {
-        console.error('Error fetching gyms:', err)
-        setError("Failed to fetch gyms")
-        toast.error("ไม่สามารถโหลดข้อมูลยิมได้")
-      } finally {
-        setIsLoading(false)
-        setIsSearching(false)
-      }
-    }
-
     fetchData()
   }, [pagination.page, pagination.pageSize, debouncedSearchTerm, includeInactive, sortField, sortBy])
+
+  useEffect(() => {
+    if(!isFormDialogOpen) {
+      fetchData()
+      console.log("isFormDialogOpen", isFormDialogOpen)
+    }
+  }, [isFormDialogOpen])
 
   // Reset to page 1 when search term or filters change
   useEffect(() => {
@@ -356,28 +296,18 @@ export default function GymsPage() {
   }
 
   const handleEditComplete = () => {
-    setIsAddDialogOpen(false);
+    setIsFormDialogOpen(false);
     setEditingGym(null);
-    fetchData(); // Refetch data to show updated gym
-  }
-
-  const handlePartialSaveSuccess = () => {
-    // This function can be used to refetch data or update state after a partial save.
-    fetchData();
   }
 
   const handleDeleteGym = async (gymId: string) => {
     try {
       await gymsApi.delete(gymId)
-      
-      // Simple optimistic update: Always remove from current view
       setGyms(prev => prev.filter(gym => gym.id !== gymId))
       setPagination(prev => ({ ...prev, total: prev.total - 1 }))
-      
       toast.success("ลบยิมสำเร็จ")
     } catch (err) {
       toast.error("ไม่สามารถลบยิมได้")
-      fetchData();
     }
   }
 
@@ -437,8 +367,8 @@ export default function GymsPage() {
                 </div>
                 <p className="text-muted-foreground">คุณสามารถดู แก้ไข หรือเพิ่มยิมใหม่ รวมถึงจัดการรายละเอียดที่ใช้แสดงผลบนแพลตฟอร์ม</p>
               </div>
-              <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-                setIsAddDialogOpen(open)
+              <Dialog open={isFormDialogOpen} onOpenChange={(open) => {
+                setIsFormDialogOpen(open)
                 if (open) {
                   setEditingGym(null)
                 }
@@ -456,7 +386,7 @@ export default function GymsPage() {
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 pb-6">
                     <GymForm 
-                      onCancel={() => setIsAddDialogOpen(false)}
+                      onCancel={() => setIsFormDialogOpen(false)}
                       onCreate={handleAddGym}
                       onSubmit={handleUpdateGym}
                       onComplete={handleEditComplete}
@@ -608,7 +538,7 @@ export default function GymsPage() {
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditingGym(gym)
-                                setIsAddDialogOpen(false) // Ensure add dialog is closed
+                                setIsFormDialogOpen(false)
                               }}>
                                 <Edit className="h-4 w-4" />
                               </Button>

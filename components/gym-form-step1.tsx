@@ -133,8 +133,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, isSubmitting: isSu
     setIsSubmitting(true)
     try {
       const cleanedData = cleanFormDataForAPI(formData)
-      
-      // onNext will handle either creation or just proceeding to the next step.
       await onNext(cleanedData)
     } catch (error) {
       console.error("Error proceeding to next step:", error)
@@ -165,7 +163,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, isSubmitting: isSu
         description: "ข้อมูลของคุณได้รับการบันทึกแล้ว",
         duration: 1000,
       })
-      // No need for onSuccess callback, parent handles state.
     } catch (error) {
       console.error("Error saving:", error)
       const { toast } = await import('sonner')
@@ -177,7 +174,6 @@ export function GymFormStep1({ gym, onNext, onCancel, onSave, isSubmitting: isSu
     }
   }
 
-  // Check if we're in edit mode
   const isEditMode = !!gym?.id
   const isFormDisabled = isSubmitting || isSubmittingProp
 
