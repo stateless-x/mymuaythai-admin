@@ -465,14 +465,19 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setIsLoading(true)
     try {
-      const [usersResponse, statsResponse] = await Promise.all([
-        adminUsersApi.getAll(),
-        adminUsersApi.getUserStats()
-      ]);
+      const usersResponse = await adminUsersApi.getAll();
+      const allUsers = usersResponse.data || [];
 
-      setUsers(usersResponse.data || []);
-      setAdminCount(statsResponse.data?.adminCount || 0);
-      setTotalCount(statsResponse.data?.totalCount || 0);
+      // Filter out users that include 'developer' in the email
+      const filteredUsers = allUsers.filter((user: AdminUser) => !user.email.includes('developer'));
+
+      // Recalculate counts from the filtered list
+      const totalCount = filteredUsers.length;
+      const adminCount = filteredUsers.filter((user: AdminUser) => user.role === 'admin').length;
+
+      setUsers(filteredUsers);
+      setAdminCount(adminCount);
+      setTotalCount(totalCount);
       
       setError(null)
     } catch (err) {
