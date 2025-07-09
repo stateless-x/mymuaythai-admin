@@ -46,7 +46,7 @@ export function GymFormStep2({
       return '';
     }).filter(slug => slug !== ''); // Remove empty slugs
   };
-
+  console.log('gym', gym);
   const [formData, setFormData] = useState({
     ...initialData,
     images: (gym?.images || []) as (string | { id?: string; image_url: string })[],
@@ -120,10 +120,11 @@ export function GymFormStep2({
       // We no longer convert tags here. The parent component does it.
       // We pass the raw form data (with tag slugs) up to the parent.
       const step2Data = {
+        associatedTrainers: selectedTrainers.map(t => t.id),
         images: formData.images,
         tags: formData.tags, 
       };
-
+      console.log(step2Data);
       // Pass data up to the multi-step form to handle the final submission
       await onSubmit(step2Data);
 

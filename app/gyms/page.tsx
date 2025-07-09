@@ -191,7 +191,6 @@ export default function GymsPage() {
 
   const closeEditDialog = () => {
     setEditingGym(null)
-    fetchData()
   }
 
   const formatDate = (dateString: string | Date) => {
@@ -240,7 +239,6 @@ export default function GymsPage() {
     try {
       const trimmedData = trimFormData(gymData)
       const newGym = await gymsApi.create(trimmedData)
-      fetchData();
       return newGym.data || newGym
     } catch (error) {
       console.error("Error creating gym:", error)
