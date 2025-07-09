@@ -8,10 +8,12 @@ import { Toaster } from "@/components/ui/sonner"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "MyMuayThai Admin Dashboard",
+  title: "Admin Dashboard",
   description: "Admin back office for MyMuayThai gym management platform",
-  generator: 'v0.dev'
-}
+  icons: {
+    icon: "/admin-favicon.png",
+  },
+};
 
 export default function RootLayout({
   children,
