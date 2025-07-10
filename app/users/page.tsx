@@ -468,13 +468,11 @@ export default function UsersPage() {
       const usersResponse = await adminUsersApi.getAll();
       const allUsers = usersResponse.data || [];
 
-      // Filter out users that include 'developer' in the email
       const filteredUsers = allUsers.filter((user: AdminUser) => !user.email.includes('developer'));
-
-      // Recalculate counts from the filtered list
       const totalCount = filteredUsers.length;
       const adminCount = filteredUsers.filter((user: AdminUser) => user.role === 'admin').length;
-
+      console.log('filteredUsers', filteredUsers)
+      console.log('allUsers', allUsers)
       setUsers(filteredUsers);
       setAdminCount(adminCount);
       setTotalCount(totalCount);
