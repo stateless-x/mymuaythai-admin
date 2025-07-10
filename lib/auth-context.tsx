@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await adminUsersApi.login({ email, password })
-      
       if (response.success && response.data?.user) {
         const userData = {
           id: response.data.user.id,

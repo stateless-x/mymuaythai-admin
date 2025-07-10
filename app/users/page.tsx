@@ -471,8 +471,6 @@ export default function UsersPage() {
       const filteredUsers = allUsers.filter((user: AdminUser) => !user.email.includes('developer'));
       const totalCount = filteredUsers.length;
       const adminCount = filteredUsers.filter((user: AdminUser) => user.role === 'admin').length;
-      console.log('filteredUsers', filteredUsers)
-      console.log('allUsers', allUsers)
       setUsers(filteredUsers);
       setAdminCount(adminCount);
       setTotalCount(totalCount);

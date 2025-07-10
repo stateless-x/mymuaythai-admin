@@ -1,11 +1,4 @@
-// API utility for MyMuayThai Backend integration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
-
-// Debug: Log the API base URL and current window location
-console.log('API_BASE_URL:', API_BASE_URL)
-console.log('Current location:', typeof window !== 'undefined' ? window.location.href : 'SSR')
-
-// Helper function to get auth token
 const getAuthToken = (): string | null => {
   if (typeof window !== "undefined") {
     return localStorage.getItem("auth-token")
@@ -13,7 +6,6 @@ const getAuthToken = (): string | null => {
   return null
 }
 
-// Helper function for authenticated requests with automatic token refresh
 const apiRequest = async (endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<any> => {
   const token = getAuthToken()
   
